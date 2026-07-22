@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Keuangan Almer</title>
+<style>body{font-family:system-ui;max-width:900px;margin:20px auto;padding:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px}input{width:100%}</style></head><body>
+<h1>Keuangan Almer</h1><button onclick="add()">+Tambah Baris</button><table id=t></table><p id=s></p>
+<script>
+let d=JSON.parse(localStorage.fin||'[{"date":"","cash":0,"invested":0}]');
+function f(n){return "Rp "+(+n).toLocaleString("id-ID")}
+function save(){localStorage.fin=JSON.stringify(d)}
+function draw(){t.innerHTML="<tr><th>Tanggal</th><th>Pemasukan di Tas</th><th>Harus Diinvestasikan</th><th>Sudah Diinvestasikan</th></tr>";let a=0,b=0,c=0;
+d.forEach((r,i)=>{let s=Math.max(0,r.cash-r.invested),tar=s>=500000?s*.2:s*.1;a+=s;b+=tar;c+=r.invested;
+let tr=t.insertRow();tr.innerHTML=`<td><input type=date value="${r.date}" onchange="d[${i}].date=this.value;save()"></td><td><input type=number value="${r.cash}" oninput="d[${i}].cash=+this.value;save();draw()"></td><td>${f(Math.round(tar))}</td><td><input type=number value="${r.invested}" oninput="d[${i}].invested=+this.value;save();draw()"></td>`});
+s.innerHTML=`<b>Total Sisa Tas:</b> ${f(a)}<br><b>Total Target:</b> ${f(Math.round(b))}<br><b>Total Diinvestasikan:</b> ${f(c)}`;}
+function add(){d.push({date:"",cash:0,invested:0});save();draw()}draw();
+</script></body></html>
