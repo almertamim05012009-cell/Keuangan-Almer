@@ -1,13 +1,88 @@
-<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Keuangan Almer</title>
-<style>body{font-family:system-ui;max-width:900px;margin:20px auto;padding:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px}input{width:100%}</style></head><body>
-<h1>Keuangan Almer</h1><button onclick="add()">+Tambah Baris</button><table id=t></table><p id=s></p>
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Keuangan Almer</title>
+<style>
+body{font-family:system-ui;max-width:900px;margin:20px auto;padding:10px}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ccc;padding:8px}
+input{width:100%;min-width:110px;box-sizing:border-box}
+td.n{white-space:nowrap}
+</style>
+</head>
+<body>
+<h1>Keuangan Almer</h1>
+<button onclick="add()">+Tambah Baris</button>
+<div class="wrap"><table id="t"></table></div>
+<p id="sum"></p>
 <script>
-let d=JSON.parse(localStorage.fin||'[{"date":"","cash":0,"invested":0}]');
-function f(n){return "Rp "+(+n).toLocaleString("id-ID")}
-function save(){localStorage.fin=JSON.stringify(d)}
-function draw(){t.innerHTML="<tr><th>Tanggal</th><th>Pemasukan di Tas</th><th>Harus Diinvestasikan</th><th>Sudah Diinvestasikan</th></tr>";let a=0,b=0,c=0;
-d.forEach((r,i)=>{let s=Math.max(0,r.cash-r.invested),tar=s>=500000?s*.2:s*.1;a+=s;b+=tar;c+=r.invested;
-let tr=t.insertRow();tr.innerHTML=`<td><input type=date value="${r.date}" onchange="d[${i}].date=this.value;save()"></td><td><input type=number value="${r.cash}" oninput="d[${i}].cash=+this.value;save();draw()"></td><td>${f(Math.round(tar))}</td><td><input type=number value="${r.invested}" oninput="d[${i}].invested=+this.value;save();draw()"></td>`});
-s.innerHTML=`<b>Total Sisa Tas:</b> ${f(a)}<br><b>Total Target:</b> ${f(Math.round(b))}<br><b>Total Diinvestasikan:</b> ${f(c)}`;}
-function add(){d.push({date:"",cash:0,invested:0});save();draw()}draw();
-</script></body></html>
+const t = document.getElementById("t");
+const sum = document.getElementById("sum");
+
+let d;
+try { d = JSON.parse(localStorage.fin); } catch (e) {}
+if (!Array.isArray(d) || !d.length) d = [{date: "", cash: 0, invested: 0}];
+
+function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
+function save() { try { localStorage.fin = JSON.stringify(d); } catch (e) {} }
+
+function calc(r) {
+  const s = Math.max(0, r.cash - r.invested);
+  return {s: s, tar: s >= 500000 ? s * 0.2 : s * 0.1};
+}
+
+// Hanya memperbarui angka hasil hitungan, tanpa menggambar ulang tabel,
+// supaya kolom yang sedang diketik tidak kehilangan fokus.
+function refresh() {
+  let a = 0, b = 0, c = 0;
+  d.forEach((r, i) => {
+    const x = calc(r);
+    a += x.s; b += x.tar; c += r.invested;
+    document.getElementById("tar" + i).textContent = f(Math.round(x.tar));
+  });
+  sum.innerHTML = "<b>Total Sisa Tas:</b> " + f(a) +
+    "<br><b>Total Target:</b> " + f(Math.round(b)) +
+    "<br><b>Total Diinvestasikan:</b> " + f(c);
+}
+
+function draw() {
+  t.innerHTML = "<tr><th>Tanggal</th><th>Pemasukan di Tas</th><th>Harus Diinvestasikan</th><th>Sudah Diinvestasikan</th><th></th></tr>";
+  d.forEach((r, i) => {
+    const tr = t.insertRow();
+    tr.innerHTML =
+      `<td><input type="date" value="${r.date}" onchange="upd(${i},'date',this.value)"></td>` +
+      `<td><input type="number" min="0" placeholder="0" value="${r.cash || ''}" oninput="upd(${i},'cash',this.value)"></td>` +
+      `<td id="tar${i}" class="n"></td>` +
+      `<td><input type="number" min="0" placeholder="0" value="${r.invested || ''}" oninput="upd(${i},'invested',this.value)"></td>` +
+      `<td><button onclick="del(${i})">Hapus</button></td>`;
+  });
+  refresh();
+}
+
+function upd(i, k, v) {
+  d[i][k] = k === "date" ? v : Math.max(0, +v || 0);
+  save();
+  refresh();
+}
+
+function add() {
+  d.push({date: "", cash: 0, invested: 0});
+  save();
+  draw();
+}
+
+function del(i) {
+  if (!confirm("Hapus baris ini?")) return;
+  d.splice(i, 1);
+  if (!d.length) d.push({date: "", cash: 0, invested: 0});
+  save();
+  draw();
+}
+
+draw();
+</script>
+</body>
+</html>
