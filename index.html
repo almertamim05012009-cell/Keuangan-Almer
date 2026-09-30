@@ -6,6 +6,8 @@
 <title>Keuangan Almer</title>
 <style>
 body{font-family:system-ui;max-width:900px;margin:20px auto;padding:10px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+#st{font-size:.9em;color:#666}
 .wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 th,td{border:1px solid #ccc;padding:8px}
@@ -15,27 +17,79 @@ td.n{white-space:nowrap}
 </head>
 <body>
 <h1>Keuangan Almer</h1>
+<div class="bar">
+  <button id="login" onclick="login()">Masuk dengan Google</button>
+  <button id="logout" onclick="logout()" style="display:none">Keluar</button>
+  <span id="st"></span>
+</div>
 <button onclick="add()">+Tambah Baris</button>
 <div class="wrap"><table id="t"></table></div>
 <p id="sum"></p>
-<script>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore, doc, getDoc, setDoc, onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCuMJffEP5UNoZrfib_fALE1zrjSp2HNFI",
+  authDomain: "keuangan-almer.firebaseapp.com",
+  projectId: "keuangan-almer",
+  storageBucket: "keuangan-almer.firebasestorage.app",
+  messagingSenderId: "471689643532",
+  appId: "1:471689643532:web:ea474812228b7660c61029",
+  measurementId: "G-Y2NWY16QW8"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
 const t = document.getElementById("t");
 const sum = document.getElementById("sum");
+const st = document.getElementById("st");
+
+const blank = () => ({date: "", cash: 0, invested: 0});
+function clean(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [blank()];
+  return rows.map(r => ({
+    date: String((r && r.date) || ""),
+    cash: Math.max(0, Number(r && r.cash) || 0),
+    invested: Math.max(0, Number(r && r.invested) || 0)
+  }));
+}
+function hasData(rows) { return rows.some(r => r.date || r.cash || r.invested); }
 
 let d;
-try { d = JSON.parse(localStorage.fin); } catch (e) {}
-if (!Array.isArray(d) || !d.length) d = [{date: "", cash: 0, invested: 0}];
+try { d = clean(JSON.parse(localStorage.fin)); } catch (e) { d = [blank()]; }
+
+let user = null, timer = null, unsub = null, dirty = false, ver = 0;
+
+function status(m) { st.textContent = m; }
+function saveLocal() { try { localStorage.fin = JSON.stringify(d); } catch (e) {} }
+
+function saveCloud() {
+  if (!user) return;
+  const u = user, v = ++ver;
+  dirty = true;
+  status("Menyimpan...");
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    try {
+      await setDoc(doc(db, "users", u.uid), {rows: d, updated: Date.now()});
+      if (v === ver) { dirty = false; status("Tersimpan di akun " + u.email); }
+    } catch (e) {
+      status("Gagal menyimpan ke akun. Data tetap aman di perangkat ini.");
+    }
+  }, 600);
+}
+function save() { saveLocal(); saveCloud(); }
 
 function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
-function save() { try { localStorage.fin = JSON.stringify(d); } catch (e) {} }
-
 function calc(r) {
   const s = Math.max(0, r.cash - r.invested);
   return {s: s, tar: s >= 500000 ? s * 0.2 : s * 0.1};
 }
 
-// Hanya memperbarui angka hasil hitungan, tanpa menggambar ulang tabel,
-// supaya kolom yang sedang diketik tidak kehilangan fokus.
 function refresh() {
   let a = 0, b = 0, c = 0;
   d.forEach((r, i) => {
@@ -62,25 +116,76 @@ function draw() {
   refresh();
 }
 
-function upd(i, k, v) {
+window.upd = (i, k, v) => {
   d[i][k] = k === "date" ? v : Math.max(0, +v || 0);
   save();
   refresh();
-}
-
-function add() {
-  d.push({date: "", cash: 0, invested: 0});
-  save();
-  draw();
-}
-
-function del(i) {
+};
+window.add = () => { d.push(blank()); save(); draw(); };
+window.del = (i) => {
   if (!confirm("Hapus baris ini?")) return;
   d.splice(i, 1);
-  if (!d.length) d.push({date: "", cash: 0, invested: 0});
+  if (!d.length) d.push(blank());
   save();
   draw();
+};
+
+// Sinkronisasi antar perangkat: perubahan dari perangkat lain muncul otomatis.
+function listen(u) {
+  if (unsub) unsub();
+  unsub = onSnapshot(doc(db, "users", u.uid), snap => {
+    if (snap.metadata.hasPendingWrites || !snap.exists() || dirty) return;
+    const rows = clean(snap.data().rows);
+    if (JSON.stringify(rows) === JSON.stringify(d)) return;
+    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+    d = rows; saveLocal(); draw();
+  });
 }
+
+onAuthStateChanged(auth, async u => {
+  user = u;
+  document.getElementById("login").style.display = u ? "none" : "";
+  document.getElementById("logout").style.display = u ? "" : "none";
+  if (!u) {
+    if (unsub) { unsub(); unsub = null; }
+    status("Belum masuk. Data hanya tersimpan di perangkat ini.");
+    return;
+  }
+  status("Menyinkronkan...");
+  try {
+    const snap = await getDoc(doc(db, "users", u.uid));
+    const cloud = snap.exists() ? clean(snap.data().rows) : null;
+    status("Masuk sebagai " + u.email);
+    if (cloud && hasData(cloud)) {
+      if (JSON.stringify(cloud) !== JSON.stringify(d)) {
+        if (!hasData(d) || confirm("Data di akun berbeda dengan data di perangkat ini.\n\nOK = pakai data akun\nBatal = pakai data perangkat ini (menimpa data akun)")) {
+          d = cloud; saveLocal(); draw();
+        } else {
+          saveCloud();
+        }
+      }
+    } else if (hasData(d)) {
+      saveCloud();
+    }
+    listen(u);
+  } catch (e) {
+    status("Gagal terhubung ke database. Coba muat ulang halaman.");
+  }
+});
+
+window.login = async () => {
+  const p = new GoogleAuthProvider();
+  try {
+    await signInWithPopup(auth, p);
+  } catch (e) {
+    if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
+      signInWithRedirect(auth, p);
+    } else if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+      alert("Gagal masuk: " + (e.code || e.message));
+    }
+  }
+};
+window.logout = () => signOut(auth);
 
 draw();
 </script>
