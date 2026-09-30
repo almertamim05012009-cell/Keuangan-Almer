@@ -460,4 +460,23 @@ window.logout = async () => {
     clearTimeout(timer);
     status("Menyimpan sebelum keluar...");
     try {
-      await setDoc(doc(db,
+      await setDoc(doc(db, "users", user.uid), {rows: d, updated: Date.now()});
+    } catch (e) {
+      if (!confirm("Perubahan terakhir belum tersimpan ke akun. Tetap keluar? Perubahan itu akan hilang.")) {
+        saveCloud();
+        return;
+      }
+    }
+  }
+  clearTimeout(timer);
+  dirty = false; ver++;
+  if (unsub) { unsub(); unsub = null; }
+  wipe();
+  await signOut(auth);
+};
+
+applyHide();
+draw();
+</script>
+</body>
+</html>
