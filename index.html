@@ -6,6 +6,10 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F4F7F2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E1626" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Keuangan">
+<link rel="icon apple-touch-icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAId0lEQVR42u3d+VPU9x3HcZb7PuRGUINHUDwTjQmjFpVoVI6AoqgI7IJHFAss2NEpbdVOnTGtIDqIETnLJSrXLhBRIgaCgaAEi2I0GiyGWKpCQc49vv2l02kbNBrfneXz/b6ef8Br+H54sOzq8P2KzOO3aSE0Wto4AgQcCDgQcCDgQMCBgAMBBwIOBBwIOBACDgQcCDgQcCDgQMCBgAMBBwIOBBwIAQcCDgQcCDgQcCDgQMCBgAMBBwIOBASfC0p9C3TYAgFXKZiaUCXn3G4ZBMIIhCDQ5HqRUJ63SfNREYqxbRCD7JmexxhlK6SwblSQu5aKzdyTdfo4qnEQVipcfeJzUU5zaW2T1YbTe82d7MG7Wk3Is9l2HZG5a5S6FjMLSWtqrcpkZQOTdyaOhKWbmAZiXq9XykFAt3P2eXAj4YRyNz71UG5Wze4QUg5QrK2r5uEDBqIWwIbTZCMw+q8L5NYZT/N7cq56q9+TzSFUxHOQs++Bm1h3EcvpAJIjMyWEP5CBRBjPbRHsvwPlT6ZKgcJGCAwtkGdSRwlbEwwbPI7m/pCw4xKXUeeiYDoATJD7JOuBLN0bxxuBXSQ8bdibJuo/p5DEqZzocWgrn+v3S5S9dkvXHA3/UK6lHoWXQSPm4Nh0o0rWZ4ToDm7HYhBYmybQZrFqDZu/H5+VDJhZv6Vkrh9SqSFzrJR6d5/wwfZ4YIhKWMMLhpAWX9DUoNxGzCIeOj0AAAAASUVORK5CYII=">
 <title>Keuangan Almer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,8 +57,20 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
 .mini{background:none;border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;padding:5px 10px;font-weight:600;font-size:.85rem;margin-left:10px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:5;display:flex;align-items:center;gap:16px;max-width:calc(100% - 32px);background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 14px;font-size:.9rem}
 .toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:2px}
+.goal{margin-top:20px}
+.gbar{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:10px}
+.gfill{height:100%;width:0;background:var(--accent)}
+.gtxt{margin:6px 0 0;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+#chart{margin-top:12px}
+#chart svg{width:100%;height:auto;display:block}
+.month{margin-top:16px}
+.month summary{cursor:pointer;font-size:.9rem;color:var(--muted);padding:4px 0}
+.mtab{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums;margin-top:6px}
+.mtab th{text-align:left;font-weight:600;color:var(--muted);padding:4px 6px 4px 0}
+.mtab td{padding:6px 6px 6px 0;border-top:1px solid var(--line)}
+.mtab th:not(:first-child),.mtab td:not(:first-child){text-align:right;padding-right:0}
 .foot{display:flex;gap:10px;flex-wrap:wrap;padding:24px 0 40px}
-.hide .big,.hide .stats b,.hide .res b,.hide .rule summary span,.hide input[type=number]{filter:blur(7px)}
+.hide .big,.hide .stats b,.hide .res b,.hide .rule summary span,.hide input[type=number],.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
 .hide input[type=number]:focus{filter:none}
 @media (hover:hover){.add:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -94,6 +110,19 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
       <div><span class="lbl">Sudah diinvestasikan</span><b id="tInv">Rp 0</b></div>
     </div>
     <button class="add add-desk" onclick="add()">+ Tambah baris</button>
+
+    <div class="goal">
+      <label class="lbl" for="goalIn">Target tabungan (Rp)</label>
+      <input id="goalIn" type="number" inputmode="numeric" min="0" placeholder="Contoh: 5000000" oninput="setGoal(this.value)">
+      <div class="gbar" id="gbar" hidden><div class="gfill" id="gfill"></div></div>
+      <p class="gtxt" id="gtxt" hidden></p>
+      <div id="chart"></div>
+    </div>
+
+    <details class="month">
+      <summary>Ringkasan bulanan</summary>
+      <table class="mtab"><thead><tr><th>Bulan</th><th>Masuk</th><th>Diinvestasikan</th></tr></thead><tbody id="mbody"></tbody></table>
+    </details>
   </section>
 
   <div class="entries">
@@ -164,11 +193,13 @@ function hasData(rows) { return rows.some(r => r.cash || r.invested || r.note); 
 
 let d;
 try { d = clean(JSON.parse(localStorage.fin)); } catch (e) { d = [blank()]; }
+let goal = 0;
+try { goal = Math.max(0, Number(localStorage.finGoal) || 0); } catch (e) {}
 
 let user = null, timer = null, unsub = null, dirty = false, ver = 0;
 
 function status(m) { st.textContent = m; }
-function saveLocal() { try { localStorage.fin = JSON.stringify(d); } catch (e) {} }
+function saveLocal() { try { localStorage.fin = JSON.stringify(d); localStorage.finGoal = String(goal); } catch (e) {} }
 
 // Penanda: ada perubahan di perangkat ini yang belum sampai ke akun.
 function flag(on) {
@@ -181,9 +212,11 @@ function flag(on) {
 // Hapus semua data lokal (dipakai saat keluar akun).
 function wipe() {
   d = [blank()];
+  goal = 0;
   try {
     localStorage.removeItem("fin");
     localStorage.removeItem("finOwner");
+    localStorage.removeItem("finGoal");
     localStorage.removeItem("finDirty");
   } catch (e) {}
   draw();
@@ -198,7 +231,7 @@ function saveCloud() {
   clearTimeout(timer);
   timer = setTimeout(async () => {
     try {
-      await setDoc(doc(db, "users", u.uid), {rows: d, updated: Date.now()});
+      await setDoc(doc(db, "users", u.uid), {rows: d, goal: goal, updated: Date.now()});
       if (v === ver) { dirty = false; flag(false); status("Tersimpan di akun " + u.email); }
     } catch (e) {
       status("Gagal menyimpan ke akun. Data tetap aman di perangkat ini.");
@@ -227,6 +260,44 @@ function refresh() {
   document.getElementById("tTarget").textContent = f(Math.round(b));
   document.getElementById("tSisa").textContent = f(a);
   document.getElementById("tInv").textContent = f(c);
+  extras(c);
+}
+
+function dl(s) { return new Date(s + "T00:00:00").toLocaleDateString("id-ID", {day: "numeric", month: "short", year: "numeric"}); }
+
+// Target tabungan, ringkasan bulanan, dan grafik total investasi.
+function extras(inv) {
+  const bar = document.getElementById("gbar"), txt = document.getElementById("gtxt");
+  bar.hidden = txt.hidden = !(goal > 0);
+  if (goal > 0) {
+    const p = Math.min(100, Math.round(inv / goal * 100));
+    document.getElementById("gfill").style.width = p + "%";
+    txt.textContent = inv >= goal ? "Target tercapai! " + f(inv) + " dari " + f(goal) : f(inv) + " dari " + f(goal) + " (" + p + "%)";
+  }
+
+  const m = {};
+  d.forEach(r => {
+    const k = /^\d{4}-\d{2}/.test(r.date) ? r.date.slice(0, 7) : "";
+    m[k] = m[k] || {cash: 0, inv: 0};
+    m[k].cash += r.cash;
+    m[k].inv += r.invested;
+  });
+  document.getElementById("mbody").innerHTML = Object.keys(m).sort().reverse().map(k => {
+    const lab = k ? new Date(k + "-01T00:00:00").toLocaleDateString("id-ID", {month: "long", year: "numeric"}) : "Tanpa tanggal";
+    return `<tr><td>${lab}</td><td>${f(m[k].cash)}</td><td>${f(m[k].inv)}</td></tr>`;
+  }).join("");
+
+  const pts = d.filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const el = document.getElementById("chart");
+  if (pts.length < 2) { el.innerHTML = ""; return; }
+  let c = 0;
+  const ys = pts.map(r => (c += r.invested));
+  const max = Math.max(goal, c, 1), W = 300, H = 90, P = 6;
+  const X = i => P + (W - 2 * P) * i / (pts.length - 1);
+  const Y = v => H - P - (H - 2 * P) * v / max;
+  const line = ys.map((v, i) => X(i).toFixed(1) + "," + Y(v).toFixed(1)).join(" ");
+  const gl = goal > 0 ? `<line x1="${P}" x2="${W - P}" y1="${Y(goal).toFixed(1)}" y2="${Y(goal).toFixed(1)}" style="stroke:var(--muted)" stroke-dasharray="4 4"/>` : "";
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik total investasi dari waktu ke waktu">${gl}<polyline points="${line}" fill="none" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" style="stroke:var(--accent)"/><circle cx="${X(ys.length - 1).toFixed(1)}" cy="${Y(c).toFixed(1)}" r="4" style="fill:var(--accent)"/></svg><span class="lbl">Total investasi, ${dl(pts[0].date)} sampai ${dl(pts[pts.length - 1].date)}${goal > 0 ? " (garis putus-putus: target)" : ""}</span>`;
 }
 
 function draw() {
@@ -251,6 +322,7 @@ function draw() {
         </div>
       </details>
     </div>`).join("");
+  document.getElementById("goalIn").value = goal || "";
   refresh();
 }
 
@@ -270,6 +342,8 @@ window.add = () => {
     if (inp) inp.focus({preventScroll: true});
   }
 };
+
+window.setGoal = v => { goal = Math.max(0, +v || 0); saveLocal(); saveCloud(); refresh(); };
 
 // Catat bahwa saran investasi sudah dijalankan.
 window.take = (i) => {
@@ -387,9 +461,10 @@ function listen(u) {
   unsub = onSnapshot(doc(db, "users", u.uid), snap => {
     if (snap.metadata.hasPendingWrites || !snap.exists() || dirty) return;
     const rows = clean(snap.data().rows);
-    if (JSON.stringify(rows) === JSON.stringify(d)) return;
+    const g = typeof snap.data().goal === "number" ? snap.data().goal : 0;
+    if (JSON.stringify(rows) === JSON.stringify(d) && g === goal) return;
     if (document.activeElement && document.activeElement.tagName === "INPUT") return;
-    d = rows; saveLocal(); draw();
+    d = rows; goal = g; saveLocal(); draw();
   }, () => {});
 }
 
@@ -410,6 +485,7 @@ onAuthStateChanged(auth, async u => {
   try {
     const snap = await getDoc(doc(db, "users", u.uid));
     const cloud = snap.exists() ? clean(snap.data().rows) : null;
+    const cg = snap.exists() && typeof snap.data().goal === "number" ? snap.data().goal : 0;
     status("Masuk sebagai " + u.email);
     if (owner && owner !== u.uid) {
       // Data di perangkat ini milik akun lain: jangan digabung.
@@ -431,6 +507,10 @@ onAuthStateChanged(auth, async u => {
     } else if (hasData(d)) {
       saveCloud();
     }
+    if (owner && owner !== u.uid) goal = cg;
+    else if (owner === u.uid && !unsynced) goal = cg;
+    else if (!goal) goal = cg;
+    else if (goal !== cg) saveCloud();
     try { localStorage.finOwner = u.uid; } catch (e) {}
     saveLocal();
     draw();
@@ -460,7 +540,7 @@ window.logout = async () => {
     clearTimeout(timer);
     status("Menyimpan sebelum keluar...");
     try {
-      await setDoc(doc(db, "users", user.uid), {rows: d, updated: Date.now()});
+      await setDoc(doc(db, "users", user.uid), {rows: d, goal: goal, updated: Date.now()});
     } catch (e) {
       if (!confirm("Perubahan terakhir belum tersimpan ke akun. Tetap keluar? Perubahan itu akan hilang.")) {
         saveCloud();
