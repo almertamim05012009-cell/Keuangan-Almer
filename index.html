@@ -32,10 +32,14 @@ button{font:inherit;cursor:pointer}
 .del:hover{color:var(--danger)}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fields label{font-size:.85rem;color:var(--muted)}
+.span2{grid-column:1/-1}
 input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
 .top input{width:auto;margin:0}
 .res{margin-top:10px;font-size:.95rem;color:var(--muted)}
 .res b{color:var(--accent);font-size:1.05rem;font-variant-numeric:tabular-nums}
+.rule{margin-top:8px}
+.rule summary{cursor:pointer;font-size:.85rem;color:var(--muted);padding:4px 0}
+.rule .fields{margin-top:8px}
 .addbar{position:sticky;bottom:0;background:var(--paper);padding:12px 0;border-top:1px solid var(--line)}
 .add{width:100%;background:var(--accent);color:var(--on);border:0;border-radius:10px;padding:14px;font-weight:700;font-size:1rem}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -84,13 +88,27 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 const st = document.getElementById("st");
 
-const blank = () => ({date: "", cash: 0, invested: 0});
+// Aturan bawaan: batas Rp 500.000, 10% di bawah batas, 20% mulai dari batas.
+const num = (v, def, min, max) => {
+  const n = Number(v);
+  return v === undefined || v === null || v === "" || isNaN(n) ? def : Math.min(max, Math.max(min, n));
+};
+// Baris baru meniru aturan dari baris terakhir.
+const blank = (l) => ({
+  date: "", cash: 0, invested: 0,
+  limit: l ? l.limit : 500000,
+  low: l ? l.low : 10,
+  high: l ? l.high : 20
+});
 function clean(rows) {
   if (!Array.isArray(rows) || !rows.length) return [blank()];
   return rows.map(r => ({
     date: String((r && r.date) || ""),
-    cash: Math.max(0, Number(r && r.cash) || 0),
-    invested: Math.max(0, Number(r && r.invested) || 0)
+    cash: num(r && r.cash, 0, 0, Infinity),
+    invested: num(r && r.invested, 0, 0, Infinity),
+    limit: num(r && r.limit, 500000, 0, Infinity),
+    low: num(r && r.low, 10, 0, 100),
+    high: num(r && r.high, 20, 0, 100)
   }));
 }
 function hasData(rows) { return rows.some(r => r.date || r.cash || r.invested); }
@@ -123,7 +141,8 @@ function save() { saveLocal(); saveCloud(); }
 function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
 function calc(r) {
   const s = Math.max(0, r.cash - r.invested);
-  return {s: s, tar: s >= 500000 ? s * 0.2 : s * 0.1};
+  const pct = s >= r.limit ? r.high : r.low;
+  return {s: s, tar: s * pct / 100};
 }
 
 function refresh() {
@@ -132,6 +151,8 @@ function refresh() {
     const x = calc(r);
     a += x.s; b += x.tar; c += r.invested;
     document.getElementById("tar" + i).textContent = f(Math.round(x.tar));
+    document.getElementById("rs" + i).textContent =
+      r.low + "% di bawah " + f(r.limit) + ", " + r.high + "% mulai " + f(r.limit);
   });
   document.getElementById("tTarget").textContent = f(Math.round(b));
   document.getElementById("tSisa").textContent = f(a);
@@ -150,16 +171,24 @@ function draw() {
         <label>Sudah diinvestasikan<input type="number" inputmode="numeric" min="0" placeholder="0" value="${r.invested || ''}" oninput="upd(${i},'invested',this.value)"></label>
       </div>
       <div class="res">Harus diinvestasikan <b id="tar${i}"></b></div>
+      <details class="rule">
+        <summary>Aturan: <span id="rs${i}"></span></summary>
+        <div class="fields">
+          <label class="span2">Batas sisa tas (Rp)<input type="number" inputmode="numeric" min="0" value="${r.limit}" oninput="upd(${i},'limit',this.value)"></label>
+          <label>Persen di bawah batas<input type="number" inputmode="decimal" min="0" max="100" step="any" value="${r.low}" oninput="upd(${i},'low',this.value)"></label>
+          <label>Persen mulai batas<input type="number" inputmode="decimal" min="0" max="100" step="any" value="${r.high}" oninput="upd(${i},'high',this.value)"></label>
+        </div>
+      </details>
     </div>`).join("");
   refresh();
 }
 
 window.upd = (i, k, v) => {
-  d[i][k] = k === "date" ? v : Math.max(0, +v || 0);
+  d[i][k] = k === "date" ? v : k === "low" || k === "high" ? Math.min(100, Math.max(0, +v || 0)) : Math.max(0, +v || 0);
   save();
   refresh();
 };
-window.add = () => { d.push(blank()); save(); draw(); };
+window.add = () => { d.push(blank(d[d.length - 1])); save(); draw(); };
 window.del = (i) => {
   if (!confirm("Hapus baris ini?")) return;
   d.splice(i, 1);
