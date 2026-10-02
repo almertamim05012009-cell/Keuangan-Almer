@@ -44,8 +44,6 @@ button{font:inherit;cursor:pointer}
 .span2{grid-column:1/-1}
 input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
 .top input{width:auto;margin:0}
-.res{margin-top:10px;font-size:.95rem;color:var(--muted)}
-.res b{color:var(--accent);font-size:1.05rem;font-variant-numeric:tabular-nums}
 .rule{margin-top:8px}
 .rule summary{cursor:pointer;font-size:.85rem;color:var(--muted);padding:4px 0}
 .rule .fields{margin-top:8px}
@@ -55,10 +53,9 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
 [hidden]{display:none!important}
 .sumhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:.85rem;padding:2px 0}
-.mini{background:none;border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;padding:5px 10px;font-weight:600;font-size:.85rem;margin-left:10px}
-.res .mini{margin-left:0}
-.mini.on{background:var(--accent);color:var(--on)}
-.rulenote{margin:-8px 0 14px;font-size:.8rem;color:var(--muted)}
+.rulenote{margin:0 0 14px;font-size:.8rem;color:var(--muted)}
+.take{display:block;width:100%;margin:0 0 12px;background:var(--accent);color:var(--on);border:0;border-radius:10px;padding:12px;font-weight:700;font-size:.95rem}
+.tag{font-size:.8rem;font-weight:600;color:var(--accent)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:5;display:flex;align-items:center;gap:16px;max-width:calc(100% - 32px);background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 14px;font-size:.9rem}
 .toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:2px}
 .goal{margin-top:20px}
@@ -74,9 +71,9 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
 .mtab td{padding:6px 6px 6px 0;border-top:1px solid var(--line)}
 .mtab th:not(:first-child),.mtab td:not(:first-child){text-align:right;padding-right:0}
 .foot{display:flex;gap:10px;flex-wrap:wrap;padding:24px 0 40px}
-.hide .big,.hide .stats b,.hide .res b,.hide .mini.on,.hide .rule summary span,.hide input[type=number],.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
+.hide .big,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
 .hide input[type=number]:focus{filter:none}
-@media (hover:hover){.add:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
+@media (hover:hover){.add:hover,.take:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (min-width:880px){
   main{max-width:1040px;padding:40px 24px}
@@ -109,6 +106,7 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
   <section class="summary">
     <div class="sumhead"><span class="lbl">Harus diinvestasikan</span><button id="eye" class="link" onclick="toggleHide()">Sembunyikan angka</button></div>
     <p class="big" id="tTarget">Rp 0</p>
+    <button class="take" id="takeBtn" onclick="takeAll()" hidden></button>
     <p class="rulenote" id="rnote"></p>
     <div class="stats">
       <div><span class="lbl">Sisa di tas</span><b id="tSisa">Rp 0</b></div>
@@ -180,9 +178,7 @@ const blank = (l) => ({
   limit: l ? l.limit : 500000,
   low: l ? l.low : 10,
   high: l ? l.high : 20,
-  note: "",
-  done: false,
-  doneAmt: 0
+  note: ""
 });
 function clean(rows) {
   if (!Array.isArray(rows) || !rows.length) return [blank()];
@@ -193,9 +189,7 @@ function clean(rows) {
     limit: num(r && r.limit, 500000, 0, Infinity),
     low: num(r && r.low, 10, 0, 100),
     high: num(r && r.high, 20, 0, 100),
-    note: String((r && r.note) || "").slice(0, 120),
-    done: !!(r && r.done && Number(r.doneAmt) > 0),
-    doneAmt: r && r.done ? num(r.doneAmt, 0, 0, Infinity) : 0
+    note: String((r && r.note) || "").slice(0, 120)
   }));
 }
 function hasData(rows) { return rows.some(r => r.cash || r.invested || r.note); }
@@ -250,26 +244,29 @@ function saveCloud() {
 function save() { saveLocal(); saveCloud(); }
 
 function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
-// Perhitungan global: semua uang yang masuk dikurangi semua yang sudah diinvestasikan.
-// Aturan persen diambil dari baris terbaru.
+// Hitungan sederhana:
+// Sisa di tas = semua uang masuk - semua yang sudah diinvestasikan.
+// Harus diinvestasikan = persen x semua uang masuk - yang sudah diinvestasikan.
+// Persen (10% atau 20%) ikut aturan baris terbaru, tergantung Sisa di tas.
 function calc() {
   let cash = 0, inv = 0;
   d.forEach(r => { cash += r.cash; inv += r.invested; });
   const s = Math.max(0, cash - inv);
   const r = d[d.length - 1];
-  return {s: s, inv: inv, tar: s * (s >= r.limit ? r.high : r.low) / 100};
+  const pct = s >= r.limit ? r.high : r.low;
+  return {s: s, inv: inv, tar: Math.max(0, cash * pct / 100 - inv)};
 }
 
 function refresh() {
   const x = calc(), sug = Math.round(x.tar), last = d[d.length - 1];
   d.forEach((r, i) => {
-    const b = document.getElementById("tk" + i);
-    b.className = r.done ? "mini on" : "mini";
-    b.textContent = r.done ? "✓ Sudah diinvestasikan " + f(r.doneAmt) : "Catat sudah diinvestasikan";
-    b.hidden = !r.done && sug <= 0;
+    document.getElementById("tg" + i).hidden = !(r.invested > 0 && r.cash === 0);
     document.getElementById("rs" + i).textContent =
       r.low + "% di bawah " + f(r.limit) + ", " + r.high + "% mulai " + f(r.limit);
   });
+  const tb = document.getElementById("takeBtn");
+  tb.hidden = sug <= 0;
+  tb.textContent = "Catat sudah diinvestasikan " + f(sug);
   document.getElementById("tTarget").textContent = f(sug);
   document.getElementById("tSisa").textContent = f(x.s);
   document.getElementById("tInv").textContent = f(x.inv);
@@ -320,6 +317,7 @@ function draw() {
     `<div class="row">
       <div class="top">
         <input type="date" aria-label="Tanggal" value="${esc(r.date)}" onchange="upd(${i},'date',this.value)">
+        <span class="tag" id="tg${i}" hidden>✓ Investasi</span>
         <button class="del" onclick="del(${i})">Hapus</button>
       </div>
       <div class="fields">
@@ -327,7 +325,6 @@ function draw() {
         <label>Sudah diinvestasikan<input id="iv${i}" type="number" inputmode="numeric" min="0" placeholder="0" value="${r.invested || ''}" oninput="upd(${i},'invested',this.value)"></label>
         <label class="span2">Catatan<input type="text" maxlength="120" placeholder="Untuk apa uang ini? (boleh kosong)" value="${esc(r.note)}" oninput="upd(${i},'note',this.value)"></label>
       </div>
-      <div class="res"><button id="tk${i}" class="mini" onclick="take(${i})">Catat sudah diinvestasikan</button></div>
       <details class="rule">
         <summary>Aturan: <span id="rs${i}"></span></summary>
         <div class="fields">
@@ -343,7 +340,6 @@ function draw() {
 
 window.upd = (i, k, v) => {
   d[i][k] = k === "date" || k === "note" ? v : k === "low" || k === "high" ? Math.min(100, Math.max(0, +v || 0)) : Math.max(0, +v || 0);
-  if (k === "invested") { d[i].done = false; d[i].doneAmt = 0; }
   save();
   refresh();
 };
@@ -361,23 +357,16 @@ window.add = () => {
 
 window.setGoal = v => { goal = Math.max(0, +v || 0); saveLocal(); saveCloud(); refresh(); };
 
-// Catat bahwa saran investasi sudah dijalankan.
-window.take = (i) => {
-  const r = d[i];
-  if (r.done) {
-    r.invested = Math.max(0, r.invested - r.doneAmt);
-    r.done = false;
-    r.doneAmt = 0;
-  } else {
-    const amt = Math.round(calc().tar);
-    if (amt <= 0) return;
-    r.invested += amt;
-    r.done = true;
-    r.doneAmt = amt;
-  }
-  document.getElementById("iv" + i).value = r.invested || "";
+// Satu tombol di atas: mencatat investasi sebagai baris baru.
+window.takeAll = () => {
+  const amt = Math.round(calc().tar);
+  if (amt <= 0) return;
+  const row = Object.assign(blank(d[d.length - 1]), {invested: amt, note: "Investasi"});
+  d.push(row);
   save();
-  refresh();
+  draw();
+  undoRow = {added: row};
+  toast("Investasi dicatat: " + f(amt), true);
 };
 
 // Pemberitahuan kecil di bawah layar, dengan tombol Urungkan untuk hapus baris.
@@ -399,7 +388,11 @@ window.del = (i) => {
 };
 window.undo = () => {
   if (!undoRow) return;
-  if (undoRow.only) d = [undoRow.row];
+  if (undoRow.added) {
+    const k = d.indexOf(undoRow.added);
+    if (k >= 0) d.splice(k, 1);
+    if (!d.length) d.push(blank());
+  } else if (undoRow.only) d = [undoRow.row];
   else d.splice(Math.min(undoRow.at, d.length), 0, undoRow.row);
   undoRow = null;
   document.getElementById("toast").hidden = true;
