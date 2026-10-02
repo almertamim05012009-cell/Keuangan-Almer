@@ -30,10 +30,11 @@ button{font:inherit;cursor:pointer}
 .btn{border:1.5px solid var(--ink);background:transparent;color:var(--ink);border-radius:8px;padding:6px 12px;font-weight:600;font-size:.9rem}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on)}
 .lbl{display:block;font-size:.85rem;color:var(--muted)}
+.tot{font-size:1.6rem;font-weight:800;line-height:1.1;margin:2px 0 18px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .big{font-size:2.6rem;font-weight:800;line-height:1.1;margin:2px 0 16px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.stats{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.stats div{padding:12px 0}
-.stats div+div{padding-left:16px;border-left:1px solid var(--line)}
+.stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stats div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0}
+.stats div+div{border-top:1px solid var(--line)}
 .stats b{font-size:1.1rem;font-variant-numeric:tabular-nums}
 .row{padding:16px 0;border-bottom:1px solid var(--line)}
 .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
@@ -42,9 +43,9 @@ button{font:inherit;cursor:pointer}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fields label{font-size:.85rem;color:var(--muted)}
 .span2{grid-column:1/-1}
-input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
+input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
 .top input{width:auto;margin:0}
-.rule{margin-top:8px}
+.rule{margin-top:10px}
 .rule summary{cursor:pointer;font-size:.85rem;color:var(--muted);padding:4px 0}
 .rule .fields{margin-top:8px}
 .addbar{position:sticky;bottom:0;background:var(--paper);padding:12px 0;border-top:1px solid var(--line)}
@@ -53,9 +54,7 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
 [hidden]{display:none!important}
 .sumhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:.85rem;padding:2px 0}
-.rulenote{margin:0 0 14px;font-size:.8rem;color:var(--muted)}
-.take{display:block;width:100%;margin:0 0 12px;background:var(--accent);color:var(--on);border:0;border-radius:10px;padding:12px;font-weight:700;font-size:.95rem}
-.tag{font-size:.8rem;font-weight:600;color:var(--accent)}
+.take{display:block;width:100%;margin:0 0 14px;background:var(--accent);color:var(--on);border:0;border-radius:10px;padding:12px;font-weight:700;font-size:.95rem}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:5;display:flex;align-items:center;gap:16px;max-width:calc(100% - 32px);background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 14px;font-size:.9rem}
 .toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:2px}
 .goal{margin-top:20px}
@@ -71,7 +70,7 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
 .mtab td{padding:6px 6px 6px 0;border-top:1px solid var(--line)}
 .mtab th:not(:first-child),.mtab td:not(:first-child){text-align:right;padding-right:0}
 .foot{display:flex;gap:10px;flex-wrap:wrap;padding:24px 0 40px}
-.hide .big,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
+.hide .tot,.hide .big,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
 .hide input[type=number]:focus{filter:none}
 @media (hover:hover){.add:hover,.take:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -82,8 +81,6 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
   .layout{display:grid;grid-template-columns:320px 1fr;gap:48px;align-items:start}
   .summary{position:sticky;top:24px}
   .big{font-size:3rem}
-  .stats{grid-template-columns:1fr}
-  .stats div+div{padding-left:0;border-left:0;border-top:1px solid var(--line)}
   .addbar{display:none}
   .add-desk{display:block;width:100%;margin-top:20px}
   .row:first-child{padding-top:0}
@@ -104,14 +101,26 @@ input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--f
 
 <div class="layout">
   <section class="summary">
-    <div class="sumhead"><span class="lbl">Harus diinvestasikan</span><button id="eye" class="link" onclick="toggleHide()">Sembunyikan angka</button></div>
+    <div class="sumhead"><span class="lbl">Total uang yang didapat</span><button id="eye" class="link" onclick="toggleHide()">Sembunyikan angka</button></div>
+    <p class="tot" id="tTotal">Rp 0</p>
+    <span class="lbl">Harus diinvestasikan</span>
     <p class="big" id="tTarget">Rp 0</p>
     <button class="take" id="takeBtn" onclick="takeAll()" hidden></button>
-    <p class="rulenote" id="rnote"></p>
     <div class="stats">
-      <div><span class="lbl">Sisa di tas</span><b id="tSisa">Rp 0</b></div>
+      <div><span class="lbl">Uang di tas</span><b id="tTas">Rp 0</b></div>
+      <div><span class="lbl">Uang di bank</span><b id="tBank">Rp 0</b></div>
       <div><span class="lbl">Sudah diinvestasikan</span><b id="tInv">Rp 0</b></div>
     </div>
+
+    <details class="rule">
+      <summary>Aturan investasi: <span id="rs"></span></summary>
+      <div class="fields">
+        <label class="span2">Batas total uang yang didapat (Rp)<input id="rLimit" type="number" inputmode="numeric" min="0" oninput="setRule('limit',this.value)"></label>
+        <label>Persen di bawah batas<input id="rLow" type="number" inputmode="decimal" min="0" max="100" step="any" oninput="setRule('low',this.value)"></label>
+        <label>Persen mulai batas<input id="rHigh" type="number" inputmode="decimal" min="0" max="100" step="any" oninput="setRule('high',this.value)"></label>
+      </div>
+    </details>
+
     <button class="add add-desk" onclick="add()">+ Tambah baris</button>
 
     <div class="goal">
@@ -162,47 +171,70 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 const st = document.getElementById("st");
 
-// Aturan bawaan: batas Rp 500.000, 10% di bawah batas, 20% mulai dari batas.
+// Jenis catatan: uang masuk ke tas, masuk ke bank, dipindah dari tas ke bank, atau diinvestasikan dari bank.
+const T = {tas: "Pemasukan ke tas", bank: "Pemasukan ke bank", pindah: "Pindah dari tas ke bank", invest: "Investasi (dari bank)"};
+const TYPES = Object.keys(T);
+
 const num = (v, def, min, max) => {
   const n = Number(v);
   return v === undefined || v === null || v === "" || isNaN(n) ? def : Math.min(max, Math.max(min, n));
 };
-// Baris baru meniru aturan dari baris terakhir.
 const today = () => {
   const t = new Date();
   return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
 };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const blank = (l) => ({
-  date: today(), cash: 0, invested: 0,
-  limit: l ? l.limit : 500000,
-  low: l ? l.low : 10,
-  high: l ? l.high : 20,
-  note: ""
-});
+
+// Aturan investasi (satu untuk semua): batas Rp 500.000, 10% di bawah batas, 20% mulai dari batas.
+const defRule = () => ({limit: 500000, low: 10, high: 20});
+const cleanRule = x => ({limit: num(x && x.limit, 500000, 0, Infinity), low: num(x && x.low, 10, 0, 100), high: num(x && x.high, 20, 0, 100)});
+// Versi lama menyimpan aturan di setiap baris: ambil dari baris terakhir.
+function pickRule(x, rows) {
+  if (!x && Array.isArray(rows) && rows.length) x = rows[rows.length - 1];
+  return cleanRule(x);
+}
+
+const blank = () => ({date: today(), type: "tas", amount: 0, note: ""});
 function clean(rows) {
   if (!Array.isArray(rows) || !rows.length) return [blank()];
-  return rows.map(r => ({
-    date: String((r && r.date) || ""),
-    cash: num(r && r.cash, 0, 0, Infinity),
-    invested: num(r && r.invested, 0, 0, Infinity),
-    limit: num(r && r.limit, 500000, 0, Infinity),
-    low: num(r && r.low, 10, 0, 100),
-    high: num(r && r.high, 20, 0, 100),
-    note: String((r && r.note) || "").slice(0, 120)
-  }));
+  const out = [];
+  rows.forEach(r => {
+    if (!r) return;
+    const date = String(r.date || ""), note = String(r.note || "").slice(0, 120);
+    if (TYPES.includes(r.type)) {
+      out.push({date: date, type: r.type, amount: num(r.amount, 0, 0, Infinity), note: note});
+    } else {
+      // Format lama: satu baris berisi uang masuk dan/atau investasi, dipecah jadi baris terpisah.
+      const cash = num(r.cash, 0, 0, Infinity), inv = num(r.invested, 0, 0, Infinity);
+      if (cash > 0 || inv === 0) out.push({date: date, type: "tas", amount: cash, note: note});
+      if (inv > 0) out.push({date: date, type: "invest", amount: inv, note: cash > 0 ? "" : note});
+    }
+  });
+  return out.length ? out : [blank()];
 }
-function hasData(rows) { return rows.some(r => r.cash || r.invested || r.note); }
+function hasData(rows) { return rows.some(r => r.amount || r.note); }
 
-let d;
-try { d = clean(JSON.parse(localStorage.fin)); } catch (e) { d = [blank()]; }
+let d = [blank()], rule = defRule();
+try {
+  const raw = JSON.parse(localStorage.fin);
+  d = clean(raw);
+  let r0 = null;
+  try { r0 = JSON.parse(localStorage.finRule); } catch (e) {}
+  rule = pickRule(r0, raw);
+} catch (e) {}
 let goal = 0;
 try { goal = Math.max(0, Number(localStorage.finGoal) || 0); } catch (e) {}
 
 let user = null, timer = null, unsub = null, dirty = false, ver = 0;
 
 function status(m) { st.textContent = m; }
-function saveLocal() { try { localStorage.fin = JSON.stringify(d); localStorage.finGoal = String(goal); } catch (e) {} }
+function saveLocal() {
+  try {
+    localStorage.fin = JSON.stringify(d);
+    localStorage.finGoal = String(goal);
+    localStorage.finRule = JSON.stringify(rule);
+  } catch (e) {}
+}
 
 // Penanda: ada perubahan di perangkat ini yang belum sampai ke akun.
 function flag(on) {
@@ -216,14 +248,18 @@ function flag(on) {
 function wipe() {
   d = [blank()];
   goal = 0;
+  rule = defRule();
   try {
     localStorage.removeItem("fin");
     localStorage.removeItem("finOwner");
     localStorage.removeItem("finGoal");
+    localStorage.removeItem("finRule");
     localStorage.removeItem("finDirty");
   } catch (e) {}
   draw();
 }
+
+function payload() { return {rows: d, goal: goal, rule: rule, updated: Date.now()}; }
 
 function saveCloud() {
   if (!user) return;
@@ -234,7 +270,7 @@ function saveCloud() {
   clearTimeout(timer);
   timer = setTimeout(async () => {
     try {
-      await setDoc(doc(db, "users", u.uid), {rows: d, goal: goal, updated: Date.now()});
+      await setDoc(doc(db, "users", u.uid), payload());
       if (v === ver) { dirty = false; flag(false); status("Tersimpan di akun " + u.email); }
     } catch (e) {
       status("Gagal menyimpan ke akun. Data tetap aman di perangkat ini.");
@@ -244,34 +280,36 @@ function saveCloud() {
 function save() { saveLocal(); saveCloud(); }
 
 function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
-// Hitungan sederhana:
-// Sisa di tas = semua uang masuk - semua yang sudah diinvestasikan.
-// Harus diinvestasikan = persen x semua uang masuk - yang sudah diinvestasikan.
-// Persen (10% atau 20%) ikut aturan baris terbaru, tergantung Sisa di tas.
+
+// Hitungan:
+// Total uang yang didapat = semua pemasukan (ke tas dan ke bank).
+// Uang di tas = pemasukan ke tas - yang dipindah ke bank.
+// Uang di bank = pemasukan ke bank + yang dipindah dari tas - yang diinvestasikan.
+// Harus diinvestasikan = persen aturan x total uang yang didapat - yang sudah diinvestasikan.
 function calc() {
-  let cash = 0, inv = 0;
-  d.forEach(r => { cash += r.cash; inv += r.invested; });
-  const s = Math.max(0, cash - inv);
-  const r = d[d.length - 1];
-  const pct = s >= r.limit ? r.high : r.low;
-  return {s: s, inv: inv, tar: Math.max(0, cash * pct / 100 - inv)};
+  let tas = 0, bank = 0, got = 0, inv = 0;
+  d.forEach(r => {
+    if (r.type === "tas") { tas += r.amount; got += r.amount; }
+    else if (r.type === "bank") { bank += r.amount; got += r.amount; }
+    else if (r.type === "pindah") { tas -= r.amount; bank += r.amount; }
+    else { bank -= r.amount; inv += r.amount; }
+  });
+  const pct = got >= rule.limit ? rule.high : rule.low;
+  return {tas: tas, bank: bank, got: got, inv: inv, tar: Math.max(0, got * pct / 100 - inv)};
 }
 
 function refresh() {
-  const x = calc(), sug = Math.round(x.tar), last = d[d.length - 1];
-  d.forEach((r, i) => {
-    document.getElementById("tg" + i).hidden = !(r.invested > 0 && r.cash === 0);
-    document.getElementById("rs" + i).textContent =
-      r.low + "% di bawah " + f(r.limit) + ", " + r.high + "% mulai " + f(r.limit);
-  });
+  const x = calc(), sug = Math.round(x.tar);
   const tb = document.getElementById("takeBtn");
   tb.hidden = sug <= 0;
   tb.textContent = "Catat sudah diinvestasikan " + f(sug);
+  document.getElementById("tTotal").textContent = f(x.got);
   document.getElementById("tTarget").textContent = f(sug);
-  document.getElementById("tSisa").textContent = f(x.s);
+  document.getElementById("tTas").textContent = f(Math.max(0, x.tas));
+  document.getElementById("tBank").textContent = f(Math.max(0, x.bank));
   document.getElementById("tInv").textContent = f(x.inv);
-  document.getElementById("rnote").textContent =
-    "Aturan baris terbaru: " + last.low + "% di bawah " + f(last.limit) + ", " + last.high + "% mulai " + f(last.limit);
+  document.getElementById("rs").textContent =
+    rule.low + "% di bawah " + f(rule.limit) + ", " + rule.high + "% mulai " + f(rule.limit);
   extras(x.inv);
 }
 
@@ -291,8 +329,8 @@ function extras(inv) {
   d.forEach(r => {
     const k = /^\d{4}-\d{2}/.test(r.date) ? r.date.slice(0, 7) : "";
     m[k] = m[k] || {cash: 0, inv: 0};
-    m[k].cash += r.cash;
-    m[k].inv += r.invested;
+    if (r.type === "tas" || r.type === "bank") m[k].cash += r.amount;
+    else if (r.type === "invest") m[k].inv += r.amount;
   });
   document.getElementById("mbody").innerHTML = Object.keys(m).sort().reverse().map(k => {
     const lab = k ? new Date(k + "-01T00:00:00").toLocaleDateString("id-ID", {month: "long", year: "numeric"}) : "Tanpa tanggal";
@@ -303,7 +341,7 @@ function extras(inv) {
   const el = document.getElementById("chart");
   if (pts.length < 2) { el.innerHTML = ""; return; }
   let c = 0;
-  const ys = pts.map(r => (c += r.invested));
+  const ys = pts.map(r => (c += r.type === "invest" ? r.amount : 0));
   const max = Math.max(goal, c, 1), W = 300, H = 90, P = 6;
   const X = i => P + (W - 2 * P) * i / (pts.length - 1);
   const Y = v => H - P - (H - 2 * P) * v / max;
@@ -317,34 +355,28 @@ function draw() {
     `<div class="row">
       <div class="top">
         <input type="date" aria-label="Tanggal" value="${esc(r.date)}" onchange="upd(${i},'date',this.value)">
-        <span class="tag" id="tg${i}" hidden>✓ Investasi</span>
         <button class="del" onclick="del(${i})">Hapus</button>
       </div>
       <div class="fields">
-        <label>Pemasukan di tas<input type="number" inputmode="numeric" min="0" placeholder="0" value="${r.cash || ''}" oninput="upd(${i},'cash',this.value)"></label>
-        <label>Sudah diinvestasikan<input id="iv${i}" type="number" inputmode="numeric" min="0" placeholder="0" value="${r.invested || ''}" oninput="upd(${i},'invested',this.value)"></label>
-        <label class="span2">Catatan<input type="text" maxlength="120" placeholder="Untuk apa uang ini? (boleh kosong)" value="${esc(r.note)}" oninput="upd(${i},'note',this.value)"></label>
+        <label class="span2">Jenis<select onchange="upd(${i},'type',this.value)">${TYPES.map(k => `<option value="${k}"${k === r.type ? " selected" : ""}>${T[k]}</option>`).join("")}</select></label>
+        <label>Jumlah (Rp)<input type="number" inputmode="numeric" min="0" placeholder="0" value="${r.amount || ''}" oninput="upd(${i},'amount',this.value)"></label>
+        <label>Catatan<input type="text" maxlength="120" placeholder="Boleh kosong" value="${esc(r.note)}" oninput="upd(${i},'note',this.value)"></label>
       </div>
-      <details class="rule">
-        <summary>Aturan: <span id="rs${i}"></span></summary>
-        <div class="fields">
-          <label class="span2">Batas sisa tas (Rp)<input type="number" inputmode="numeric" min="0" value="${r.limit}" oninput="upd(${i},'limit',this.value)"></label>
-          <label>Persen di bawah batas<input type="number" inputmode="decimal" min="0" max="100" step="any" value="${r.low}" oninput="upd(${i},'low',this.value)"></label>
-          <label>Persen mulai batas<input type="number" inputmode="decimal" min="0" max="100" step="any" value="${r.high}" oninput="upd(${i},'high',this.value)"></label>
-        </div>
-      </details>
     </div>`).join("");
   document.getElementById("goalIn").value = goal || "";
+  document.getElementById("rLimit").value = rule.limit;
+  document.getElementById("rLow").value = rule.low;
+  document.getElementById("rHigh").value = rule.high;
   refresh();
 }
 
 window.upd = (i, k, v) => {
-  d[i][k] = k === "date" || k === "note" ? v : k === "low" || k === "high" ? Math.min(100, Math.max(0, +v || 0)) : Math.max(0, +v || 0);
+  d[i][k] = k === "amount" ? Math.max(0, +v || 0) : v;
   save();
   refresh();
 };
 window.add = () => {
-  d.push(blank(d[d.length - 1]));
+  d.push(blank());
   save();
   draw();
   const first = list.querySelector(".row");
@@ -356,12 +388,18 @@ window.add = () => {
 };
 
 window.setGoal = v => { goal = Math.max(0, +v || 0); saveLocal(); saveCloud(); refresh(); };
+window.setRule = (k, v) => {
+  rule[k] = k === "limit" ? Math.max(0, +v || 0) : Math.min(100, Math.max(0, +v || 0));
+  saveLocal();
+  saveCloud();
+  refresh();
+};
 
 // Satu tombol di atas: mencatat investasi sebagai baris baru.
 window.takeAll = () => {
   const amt = Math.round(calc().tar);
   if (amt <= 0) return;
-  const row = Object.assign(blank(d[d.length - 1]), {invested: amt, note: "Investasi"});
+  const row = Object.assign(blank(), {type: "invest", amount: amt, note: "Investasi"});
   d.push(row);
   save();
   draw();
@@ -369,7 +407,7 @@ window.takeAll = () => {
   toast("Investasi dicatat: " + f(amt), true);
 };
 
-// Pemberitahuan kecil di bawah layar, dengan tombol Urungkan untuk hapus baris.
+// Pemberitahuan kecil di bawah layar, dengan tombol Urungkan.
 let undoRow = null, toastTimer = null;
 function toast(msg, canUndo) {
   document.getElementById("tmsg").textContent = msg;
@@ -435,8 +473,7 @@ window.exportCsv = () => {
     if (/^[=+\-@]/.test(s)) s = "'" + s;
     return '"' + s.replace(/"/g, '""') + '"';
   };
-  const head = ["tanggal", "pemasukan_di_tas", "sudah_diinvestasikan", "batas", "persen_di_bawah", "persen_mulai", "catatan"];
-  const lines = [head.join(";")].concat(d.map(r => [q(r.date), r.cash, r.invested, r.limit, r.low, r.high, q(r.note)].join(";")));
+  const lines = ["tanggal;jenis;jumlah;catatan"].concat(d.map(r => [q(r.date), r.type, r.amount, q(r.note)].join(";")));
   const blob = new Blob(["\ufeff" + lines.join("\r\n")], {type: "text/csv;charset=utf-8"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -457,17 +494,18 @@ window.importCsv = (inp) => {
       const t = String(rd.result).replace(/^\ufeff/, "");
       const sep = t.split("\n")[0].includes(";") ? ";" : ",";
       const n = v => String(v == null ? "" : v).trim().replace(",", ".");
-      const rows = parseCsv(t, sep).slice(1).filter(c => c.some(x => x.trim() !== "")).map(c => ({
-        date: (c[0] || "").trim(), cash: n(c[1]), invested: n(c[2]),
-        limit: n(c[3]), low: n(c[4]), high: n(c[5]),
-        note: (c[6] || "").replace(/^'(?=[=+\-@])/, "")
-      }));
+      const unq = v => String(v || "").replace(/^'(?=[=+\-@])/, "");
+      const all = parseCsv(t, sep);
+      const isNew = ((all[0] || [])[1] || "").trim().toLowerCase() === "jenis";
+      const rows = all.slice(1).filter(c => c.some(x => x.trim() !== "")).map(c => isNew
+        ? {date: (c[0] || "").trim(), type: (c[1] || "").trim(), amount: n(c[2]), note: unq(c[3])}
+        : {date: (c[0] || "").trim(), cash: n(c[1]), invested: n(c[2]), note: unq(c[6])});
       if (!rows.length) { toast("File kosong atau formatnya tidak dikenali", false); return; }
-      if (!confirm("Ganti semua data sekarang dengan " + rows.length + " baris dari file ini?")) return;
+      if (!confirm("Ganti semua data sekarang dengan isi file ini?")) return;
       d = clean(rows);
       save();
       draw();
-      toast("Data dipulihkan: " + rows.length + " baris", false);
+      toast("Data dipulihkan: " + d.length + " baris", false);
     } catch (e) {
       toast("Gagal membaca file", false);
     }
@@ -482,9 +520,10 @@ function listen(u) {
     if (snap.metadata.hasPendingWrites || !snap.exists() || dirty) return;
     const rows = clean(snap.data().rows);
     const g = typeof snap.data().goal === "number" ? snap.data().goal : 0;
-    if (JSON.stringify(rows) === JSON.stringify(d) && g === goal) return;
-    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
-    d = rows; goal = g; saveLocal(); draw();
+    const ru = pickRule(snap.data().rule, snap.data().rows);
+    if (JSON.stringify(rows) === JSON.stringify(d) && g === goal && JSON.stringify(ru) === JSON.stringify(rule)) return;
+    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT")) return;
+    d = rows; goal = g; rule = ru; saveLocal(); draw();
   }, () => {});
 }
 
@@ -506,31 +545,31 @@ onAuthStateChanged(auth, async u => {
     const snap = await getDoc(doc(db, "users", u.uid));
     const cloud = snap.exists() ? clean(snap.data().rows) : null;
     const cg = snap.exists() && typeof snap.data().goal === "number" ? snap.data().goal : 0;
+    const cr = snap.exists() ? pickRule(snap.data().rule, snap.data().rows) : defRule();
     status("Masuk sebagai " + u.email);
     if (owner && owner !== u.uid) {
       // Data di perangkat ini milik akun lain: jangan digabung.
       d = cloud || [blank()];
+      goal = cg; rule = cr;
       flag(false);
     } else if (owner === u.uid && !unsynced) {
       // Data lokal milik akun ini dan sudah tersimpan: data akun yang terbaru.
-      if (cloud) d = cloud;
+      if (cloud) { d = cloud; goal = cg; rule = cr; }
       else if (hasData(d)) saveCloud();
-    } else if (cloud && hasData(cloud)) {
+    } else {
       // Data sebelum masuk, atau perubahan yang belum sempat tersimpan.
-      if (JSON.stringify(cloud) !== JSON.stringify(d)) {
-        if (!hasData(d) || confirm("Data di akun berbeda dengan data di perangkat ini.\n\nOK = pakai data akun\nBatal = pakai data perangkat ini (menimpa data akun)")) {
-          d = cloud;
-        } else {
-          saveCloud();
+      if (cloud && hasData(cloud)) {
+        if (JSON.stringify(cloud) !== JSON.stringify(d)) {
+          if (!hasData(d) || confirm("Data di akun berbeda dengan data di perangkat ini.\n\nOK = pakai data akun\nBatal = pakai data perangkat ini (menimpa data akun)")) {
+            d = cloud; goal = cg; rule = cr;
+          } else {
+            saveCloud();
+          }
         }
+      } else if (hasData(d)) {
+        saveCloud();
       }
-    } else if (hasData(d)) {
-      saveCloud();
     }
-    if (owner && owner !== u.uid) goal = cg;
-    else if (owner === u.uid && !unsynced) goal = cg;
-    else if (!goal) goal = cg;
-    else if (goal !== cg) saveCloud();
     try { localStorage.finOwner = u.uid; } catch (e) {}
     saveLocal();
     draw();
@@ -560,7 +599,7 @@ window.logout = async () => {
     clearTimeout(timer);
     status("Menyimpan sebelum keluar...");
     try {
-      await setDoc(doc(db, "users", user.uid), {rows: d, goal: goal, updated: Date.now()});
+      await setDoc(doc(db, "users", user.uid), payload());
     } catch (e) {
       if (!confirm("Perubahan terakhir belum tersimpan ke akun. Tetap keluar? Perubahan itu akan hilang.")) {
         saveCloud();
