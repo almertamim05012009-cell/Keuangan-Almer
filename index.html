@@ -107,8 +107,8 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
     <p class="big" id="tTarget">Rp 0</p>
     <button class="take" id="takeBtn" onclick="takeAll()" hidden></button>
     <div class="stats">
-      <div><span class="lbl">Uang di tas</span><b id="tTas">Rp 0</b></div>
-      <div><span class="lbl">Uang di bank</span><b id="tBank">Rp 0</b></div>
+      <div><span class="lbl">Pemasukan di tas</span><b id="tTas">Rp 0</b></div>
+      <div><span class="lbl">Pemasukan di bank</span><b id="tBank">Rp 0</b></div>
       <div><span class="lbl">Sudah diinvestasikan</span><b id="tInv">Rp 0</b></div>
     </div>
 
@@ -281,21 +281,29 @@ function save() { saveLocal(); saveCloud(); }
 
 function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
 
-// Hitungan:
-// Total uang yang didapat = semua pemasukan (ke tas dan ke bank).
-// Uang di tas = pemasukan ke tas - yang dipindah ke bank.
-// Uang di bank = pemasukan ke bank + yang dipindah dari tas - yang diinvestasikan.
+// Hitungan untuk satu siklus yang sedang berjalan:
+// Pemasukan di tas / di bank = uang masuk (yang dipindah dari tas ke bank ikut berpindah).
+// Total uang yang didapat = pemasukan di tas + pemasukan di bank.
 // Harus diinvestasikan = persen aturan x total uang yang didapat - yang sudah diinvestasikan.
+// Kalau yang diinvestasikan sudah mencapai jumlah itu, siklus selesai dan semua angka kembali ke 0.
+// life = seluruh investasi sejak awal, dipakai untuk target tabungan dan grafik.
 function calc() {
-  let tas = 0, bank = 0, got = 0, inv = 0;
+  let tas = 0, bank = 0, inv = 0, life = 0;
+  const need = () => {
+    const got = tas + bank;
+    return Math.round(got * (got >= rule.limit ? rule.high : rule.low) / 100);
+  };
   d.forEach(r => {
-    if (r.type === "tas") { tas += r.amount; got += r.amount; }
-    else if (r.type === "bank") { bank += r.amount; got += r.amount; }
+    if (r.type === "tas") tas += r.amount;
+    else if (r.type === "bank") bank += r.amount;
     else if (r.type === "pindah") { tas -= r.amount; bank += r.amount; }
-    else { bank -= r.amount; inv += r.amount; }
+    else {
+      inv += r.amount;
+      life += r.amount;
+      if (r.amount > 0 && inv >= need()) { tas = 0; bank = 0; inv = 0; }
+    }
   });
-  const pct = got >= rule.limit ? rule.high : rule.low;
-  return {tas: tas, bank: bank, got: got, inv: inv, tar: Math.max(0, got * pct / 100 - inv)};
+  return {tas: tas, bank: bank, got: tas + bank, inv: inv, life: life, tar: Math.max(0, need() - inv)};
 }
 
 function refresh() {
@@ -310,7 +318,7 @@ function refresh() {
   document.getElementById("tInv").textContent = f(x.inv);
   document.getElementById("rs").textContent =
     rule.low + "% di bawah " + f(rule.limit) + ", " + rule.high + "% mulai " + f(rule.limit);
-  extras(x.inv);
+  extras(x.life);
 }
 
 function dl(s) { return new Date(s + "T00:00:00").toLocaleDateString("id-ID", {day: "numeric", month: "short", year: "numeric"}); }
