@@ -75,11 +75,11 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
 @media (hover:hover){.add:hover,.take:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (min-width:880px){
-  main{max-width:1040px;padding:40px 24px}
-  .head{margin-bottom:36px}
+  main{max-width:1040px;height:100vh;display:flex;flex-direction:column;padding:40px 24px 0}
+  .head{flex:none;margin-bottom:28px}
   h1{font-size:1.8rem}
-  .layout{display:grid;grid-template-columns:320px 1fr;gap:48px;align-items:start}
-  .summary{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;scrollbar-width:thin;padding:4px 10px 4px 4px;margin-left:-4px}
+  .layout{flex:1;min-height:0;display:grid;grid-template-columns:320px 1fr;grid-template-rows:minmax(0,1fr);gap:40px}
+  .summary,.entries{min-height:0;overflow-y:auto;scrollbar-width:thin;padding:4px 12px 24px 4px;margin-left:-4px}
   .big{font-size:3rem}
   .addbar{display:none}
   .add-desk{display:block;width:100%;margin-top:20px}
@@ -140,13 +140,13 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
   <div class="entries">
     <div id="list"></div>
     <div class="addbar"><button class="add" onclick="add()">+ Tambah baris</button></div>
+    <footer class="foot">
+      <button class="btn" onclick="exportCsv()">Unduh cadangan (CSV)</button>
+      <button class="btn" onclick="document.getElementById('imp').click()">Pulihkan dari file</button>
+      <input type="file" id="imp" accept=".csv,text/csv" hidden onchange="importCsv(this)">
+    </footer>
   </div>
 </div>
-<footer class="foot">
-  <button class="btn" onclick="exportCsv()">Unduh cadangan (CSV)</button>
-  <button class="btn" onclick="document.getElementById('imp').click()">Pulihkan dari file</button>
-  <input type="file" id="imp" accept=".csv,text/csv" hidden onchange="importCsv(this)">
-</footer>
 <div id="toast" class="toast" hidden><span id="tmsg"></span><button id="tundo" onclick="undo()">Urungkan</button></div>
 </main>
 
