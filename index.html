@@ -69,17 +69,25 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
 .mtab th{text-align:left;font-weight:600;color:var(--muted);padding:4px 6px 4px 0}
 .mtab td{padding:6px 6px 6px 0;border-top:1px solid var(--line)}
 .mtab th:not(:first-child),.mtab td:not(:first-child){text-align:right;padding-right:0}
-.foot{display:flex;gap:10px;flex-wrap:wrap;padding:24px 0 40px}
+.acct{position:relative}
+.avatar{position:relative;width:38px;height:38px;padding:0;border-radius:50%;border:1.5px solid var(--line);background:var(--accent);color:var(--on);font-weight:800;font-size:1rem;display:grid;place-items:center;overflow:hidden}
+.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.menu{position:absolute;right:0;top:calc(100% + 8px);z-index:20;min-width:250px;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+.menu .em{padding:8px 10px 10px;font-size:.85rem;color:var(--muted);word-break:break-all;border-bottom:1px solid var(--line);margin-bottom:4px}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:10px;border-radius:8px;font-size:.95rem}
+.menu button:hover{background:var(--line)}
+.menu .out{color:var(--danger)}
 .hide .tot,.hide .big,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
 .hide input[type=number]:focus{filter:none}
 @media (hover:hover){.add:hover,.take:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (min-width:880px){
-  main{max-width:1040px;height:100vh;display:flex;flex-direction:column;padding:40px 24px 0}
-  .head{flex:none;margin-bottom:28px}
+  main{max-width:1040px;padding:40px 24px 0}
+  .head{margin-bottom:36px}
   h1{font-size:1.8rem}
-  .layout{flex:1;min-height:0;display:grid;grid-template-columns:320px 1fr;grid-template-rows:minmax(0,1fr);gap:40px}
-  .summary,.entries{min-height:0;overflow-y:auto;scrollbar-width:thin;padding:4px 12px 24px 4px;margin-left:-4px}
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:48px;align-items:start}
+  .summary{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;scrollbar-width:thin;padding:4px 10px 4px 4px;margin-left:-4px}
+  .entries{padding-bottom:40px}
   .big{font-size:3rem}
   .addbar{display:none}
   .add-desk{display:block;width:100%;margin-top:20px}
@@ -94,8 +102,17 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
   <h1>Keuangan Almer</h1>
   <div class="bar">
     <button id="login" class="btn pri" onclick="login()">Masuk dengan Google</button>
-    <button id="logout" class="btn" onclick="logout()" style="display:none">Keluar</button>
     <span id="st"></span>
+    <div class="acct" id="acct" hidden>
+      <button class="avatar" id="avatar" onclick="toggleMenu()" aria-label="Akun" aria-haspopup="true"></button>
+      <div class="menu" id="menu" hidden>
+        <div class="em" id="acctEmail"></div>
+        <button onclick="toggleMenu();exportCsv()">Unduh cadangan (CSV)</button>
+        <button onclick="toggleMenu();document.getElementById('imp').click()">Pulihkan dari file</button>
+        <button class="out" onclick="toggleMenu();logout()">Keluar</button>
+      </div>
+      <input type="file" id="imp" accept=".csv,text/csv" hidden onchange="importCsv(this)">
+    </div>
   </div>
 </header>
 
@@ -140,11 +157,6 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
   <div class="entries">
     <div id="list"></div>
     <div class="addbar"><button class="add" onclick="add()">+ Tambah baris</button></div>
-    <footer class="foot">
-      <button class="btn" onclick="exportCsv()">Unduh cadangan (CSV)</button>
-      <button class="btn" onclick="document.getElementById('imp').click()">Pulihkan dari file</button>
-      <input type="file" id="imp" accept=".csv,text/csv" hidden onchange="importCsv(this)">
-    </footer>
   </div>
 </div>
 <div id="toast" class="toast" hidden><span id="tmsg"></span><button id="tundo" onclick="undo()">Urungkan</button></div>
@@ -271,7 +283,7 @@ function saveCloud() {
   timer = setTimeout(async () => {
     try {
       await setDoc(doc(db, "users", u.uid), payload());
-      if (v === ver) { dirty = false; flag(false); status("Tersimpan di akun " + u.email); }
+      if (v === ver) { dirty = false; flag(false); status("Tersimpan di akun"); }
     } catch (e) {
       status("Gagal menyimpan ke akun. Data tetap aman di perangkat ini.");
     }
@@ -376,6 +388,7 @@ function draw() {
   document.getElementById("rLow").value = rule.low;
   document.getElementById("rHigh").value = rule.high;
   refresh();
+  fitSide();
 }
 
 window.upd = (i, k, v) => {
@@ -538,7 +551,13 @@ function listen(u) {
 onAuthStateChanged(auth, async u => {
   user = u;
   document.getElementById("login").style.display = u ? "none" : "";
-  document.getElementById("logout").style.display = u ? "" : "none";
+  document.getElementById("acct").hidden = !u;
+  if (u) {
+    const letter = ((u.displayName || u.email || "?").trim()[0] || "?").toUpperCase();
+    document.getElementById("avatar").innerHTML = "<span>" + esc(letter) + "</span>" +
+      (u.photoURL ? '<img src="' + esc(u.photoURL) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : "");
+    document.getElementById("acctEmail").textContent = u.email || "";
+  }
   if (!u) {
     if (unsub) { unsub(); unsub = null; }
     // Data milik sebuah akun tidak boleh tampil kalau tidak ada yang masuk.
@@ -554,7 +573,7 @@ onAuthStateChanged(auth, async u => {
     const cloud = snap.exists() ? clean(snap.data().rows) : null;
     const cg = snap.exists() && typeof snap.data().goal === "number" ? snap.data().goal : 0;
     const cr = snap.exists() ? pickRule(snap.data().rule, snap.data().rows) : defRule();
-    status("Masuk sebagai " + u.email);
+    status("Tersimpan di akun");
     if (owner && owner !== u.uid) {
       // Data di perangkat ini milik akun lain: jangan digabung.
       d = cloud || [blank()];
@@ -578,6 +597,7 @@ onAuthStateChanged(auth, async u => {
         saveCloud();
       }
     }
+    if (owner && owner !== u.uid) goal = cg;
     try { localStorage.finOwner = u.uid; } catch (e) {}
     saveLocal();
     draw();
@@ -622,8 +642,25 @@ window.logout = async () => {
   await signOut(auth);
 };
 
+// Menu akun: email, cadangan, dan keluar.
+const menu = document.getElementById("menu");
+window.toggleMenu = () => { menu.hidden = !menu.hidden; };
+document.addEventListener("click", e => { if (!menu.hidden && !e.target.closest("#acct")) menu.hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") menu.hidden = true; });
+
+// Tinggi panel kiri mengikuti ruang layar yang terlihat, supaya seluruh isinya bisa digulir.
+const side = document.querySelector(".summary");
+function fitSide() {
+  if (window.innerWidth < 880) { side.style.maxHeight = ""; return; }
+  const top = Math.max(24, side.getBoundingClientRect().top);
+  side.style.maxHeight = Math.max(240, window.innerHeight - top - 24) + "px";
+}
+window.addEventListener("scroll", fitSide, {passive: true});
+window.addEventListener("resize", fitSide);
+
 applyHide();
 draw();
+fitSide();
 </script>
 </body>
 </html>
