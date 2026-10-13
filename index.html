@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
+<meta name="description" content="Catatan uang masuk dan investasi pribadi. Menghitung otomatis berapa yang harus diinvestasikan, dengan target tabungan dan grafik.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Keuangan Almer">
+<meta property="og:description" content="Catat uang masuk, hitung otomatis berapa yang harus diinvestasikan, dan pantau target tabungan.">
+<meta property="og:image" content="https://almertamim05012009-cell.github.io/Keuangan-Almer/icon-192.png">
+<meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#F4F7F2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E1626" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -72,6 +78,8 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
 .acct{position:relative}
 .avatar{position:relative;width:38px;height:38px;padding:0;border-radius:50%;border:1.5px solid var(--line);background:var(--accent);color:var(--on);font-weight:800;font-size:1rem;display:grid;place-items:center;overflow:hidden}
 .avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.avatar.guest{background:var(--line);color:var(--ink)}
+.avatar svg{width:20px;height:20px;fill:currentColor}
 .menu{position:absolute;right:0;top:calc(100% + 8px);z-index:20;min-width:250px;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.28)}
 .menu .em{padding:8px 10px 10px;font-size:.85rem;color:var(--muted);word-break:break-all;border-bottom:1px solid var(--line);margin-bottom:4px}
 .menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:10px;border-radius:8px;font-size:.95rem}
@@ -98,18 +106,19 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
 </head>
 <body>
 <main>
+<noscript><p style="padding:16px 0">Website ini butuh JavaScript supaya bisa dipakai. Aktifkan JavaScript di browser kamu.</p></noscript>
 <header class="head">
   <h1>Keuangan Almer</h1>
   <div class="bar">
     <button id="login" class="btn pri" onclick="login()">Masuk dengan Google</button>
     <span id="st"></span>
-    <div class="acct" id="acct" hidden>
-      <button class="avatar" id="avatar" onclick="toggleMenu()" aria-label="Akun" aria-haspopup="true"></button>
+    <div class="acct" id="acct">
+      <button class="avatar guest" id="avatar" onclick="toggleMenu()" aria-label="Akun" aria-haspopup="true" aria-expanded="false"></button>
       <div class="menu" id="menu" hidden>
         <div class="em" id="acctEmail"></div>
         <button onclick="toggleMenu();exportCsv()">Unduh cadangan (CSV)</button>
         <button onclick="toggleMenu();document.getElementById('imp').click()">Pulihkan dari file</button>
-        <button class="out" onclick="toggleMenu();logout()">Keluar</button>
+        <button class="out" id="out" onclick="toggleMenu();logout()" hidden>Keluar</button>
       </div>
       <input type="file" id="imp" accept=".csv,text/csv" hidden onchange="importCsv(this)">
     </div>
@@ -159,14 +168,10 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
     <div class="addbar"><button class="add" onclick="add()">+ Tambah baris</button></div>
   </div>
 </div>
-<div id="toast" class="toast" hidden><span id="tmsg"></span><button id="tundo" onclick="undo()">Urungkan</button></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="tmsg"></span><button id="tundo" onclick="undo()">Urungkan</button></div>
 </main>
 
 <script type="module">
-import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore, doc, getDoc, setDoc, onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyCuMJffEP5UNoZrfib_fALE1zrjSp2HNFI",
   authDomain: "keuangan-almer.firebaseapp.com",
@@ -176,9 +181,9 @@ const firebaseConfig = {
   appId: "1:471689643532:web:ea474812228b7660c61029",
   measurementId: "G-Y2NWY16QW8"
 };
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Firebase dimuat setelah halaman tampil, supaya aplikasi tetap bisa dipakai kalau Firebase lambat atau diblokir.
+const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
+let fb = null, auth = null, db = null;
 
 const list = document.getElementById("list");
 const st = document.getElementById("st");
@@ -214,7 +219,9 @@ function clean(rows) {
     if (!r) return;
     const date = String(r.date || ""), note = String(r.note || "").slice(0, 120);
     if (TYPES.includes(r.type)) {
-      out.push({date: date, type: r.type, amount: num(r.amount, 0, 0, Infinity), note: note});
+      const o = {date: date, type: r.type, amount: num(r.amount, 0, 0, Infinity), note: note};
+      if (r.type === "invest" && r.rl) o.rl = cleanRule(r.rl);
+      out.push(o);
     } else {
       // Format lama: satu baris berisi uang masuk dan/atau investasi, dipecah jadi baris terpisah.
       const cash = num(r.cash, 0, 0, Infinity), inv = num(r.invested, 0, 0, Infinity);
@@ -282,7 +289,7 @@ function saveCloud() {
   clearTimeout(timer);
   timer = setTimeout(async () => {
     try {
-      await setDoc(doc(db, "users", u.uid), payload());
+      await fb.setDoc(fb.doc(db, "users", u.uid), payload());
       if (v === ver) { dirty = false; flag(false); status("Tersimpan di akun"); }
     } catch (e) {
       status("Gagal menyimpan ke akun. Data tetap aman di perangkat ini.");
@@ -299,11 +306,12 @@ function f(n) { return "Rp " + (+n).toLocaleString("id-ID"); }
 // Harus diinvestasikan = persen aturan x total uang yang didapat - yang sudah diinvestasikan.
 // Kalau yang diinvestasikan sudah mencapai jumlah itu, siklus selesai dan semua angka kembali ke 0.
 // life = seluruh investasi sejak awal, dipakai untuk target tabungan dan grafik.
+// Aturan yang berlaku saat investasi dicatat disimpan di barisnya (rl), jadi riwayat lama tidak berubah kalau aturan diganti.
 function calc() {
   let tas = 0, bank = 0, inv = 0, life = 0;
-  const need = () => {
+  const need = R => {
     const got = tas + bank;
-    return Math.round(got * (got >= rule.limit ? rule.high : rule.low) / 100);
+    return Math.round(got * (got >= R.limit ? R.high : R.low) / 100);
   };
   d.forEach(r => {
     if (r.type === "tas") tas += r.amount;
@@ -312,10 +320,10 @@ function calc() {
     else {
       inv += r.amount;
       life += r.amount;
-      if (r.amount > 0 && inv >= need()) { tas = 0; bank = 0; inv = 0; }
+      if (r.amount > 0 && inv >= need(r.rl || rule)) { tas = 0; bank = 0; inv = 0; }
     }
   });
-  return {tas: tas, bank: bank, got: tas + bank, inv: inv, life: life, tar: Math.max(0, need() - inv)};
+  return {tas: tas, bank: bank, got: tas + bank, inv: inv, life: life, tar: Math.max(0, need(rule) - inv)};
 }
 
 function refresh() {
@@ -393,6 +401,10 @@ function draw() {
 
 window.upd = (i, k, v) => {
   d[i][k] = k === "amount" ? Math.max(0, +v || 0) : v;
+  if (k === "type") {
+    if (v === "invest") { if (!d[i].rl) d[i].rl = Object.assign({}, rule); }
+    else delete d[i].rl;
+  }
   save();
   refresh();
 };
@@ -402,7 +414,8 @@ window.add = () => {
   draw();
   const first = list.querySelector(".row");
   if (first) {
-    first.scrollIntoView({behavior: "smooth", block: "center"});
+    const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    first.scrollIntoView({behavior: calm ? "auto" : "smooth", block: "center"});
     const inp = first.querySelector("input[type=number]");
     if (inp) inp.focus({preventScroll: true});
   }
@@ -420,7 +433,7 @@ window.setRule = (k, v) => {
 window.takeAll = () => {
   const amt = Math.round(calc().tar);
   if (amt <= 0) return;
-  const row = Object.assign(blank(), {type: "invest", amount: amt, note: "Investasi"});
+  const row = Object.assign(blank(), {type: "invest", amount: amt, note: "Investasi", rl: Object.assign({}, rule)});
   d.push(row);
   save();
   draw();
@@ -494,7 +507,8 @@ window.exportCsv = () => {
     if (/^[=+\-@]/.test(s)) s = "'" + s;
     return '"' + s.replace(/"/g, '""') + '"';
   };
-  const lines = ["tanggal;jenis;jumlah;catatan"].concat(d.map(r => [q(r.date), r.type, r.amount, q(r.note)].join(";")));
+  const lines = ["tanggal;jenis;jumlah;catatan;batas;persen_di_bawah;persen_mulai"].concat(d.map(r =>
+    [q(r.date), r.type, r.amount, q(r.note)].concat(r.rl ? [r.rl.limit, r.rl.low, r.rl.high] : ["", "", ""]).join(";")));
   const blob = new Blob(["\ufeff" + lines.join("\r\n")], {type: "text/csv;charset=utf-8"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -519,7 +533,8 @@ window.importCsv = (inp) => {
       const all = parseCsv(t, sep);
       const isNew = ((all[0] || [])[1] || "").trim().toLowerCase() === "jenis";
       const rows = all.slice(1).filter(c => c.some(x => x.trim() !== "")).map(c => isNew
-        ? {date: (c[0] || "").trim(), type: (c[1] || "").trim(), amount: n(c[2]), note: unq(c[3])}
+        ? {date: (c[0] || "").trim(), type: (c[1] || "").trim(), amount: n(c[2]), note: unq(c[3]),
+           rl: n(c[4]) !== "" ? {limit: n(c[4]), low: n(c[5]), high: n(c[6])} : undefined}
         : {date: (c[0] || "").trim(), cash: n(c[1]), invested: n(c[2]), note: unq(c[6])});
       if (!rows.length) { toast("File kosong atau formatnya tidak dikenali", false); return; }
       if (!confirm("Ganti semua data sekarang dengan isi file ini?")) return;
@@ -537,7 +552,7 @@ window.importCsv = (inp) => {
 // Sinkronisasi antar perangkat: perubahan dari perangkat lain muncul otomatis.
 function listen(u) {
   if (unsub) unsub();
-  unsub = onSnapshot(doc(db, "users", u.uid), snap => {
+  unsub = fb.onSnapshot(fb.doc(db, "users", u.uid), snap => {
     if (snap.metadata.hasPendingWrites || !snap.exists() || dirty) return;
     const rows = clean(snap.data().rows);
     const g = typeof snap.data().goal === "number" ? snap.data().goal : 0;
@@ -548,16 +563,10 @@ function listen(u) {
   }, () => {});
 }
 
-onAuthStateChanged(auth, async u => {
+async function onAuth(u) {
   user = u;
   document.getElementById("login").style.display = u ? "none" : "";
-  document.getElementById("acct").hidden = !u;
-  if (u) {
-    const letter = ((u.displayName || u.email || "?").trim()[0] || "?").toUpperCase();
-    document.getElementById("avatar").innerHTML = "<span>" + esc(letter) + "</span>" +
-      (u.photoURL ? '<img src="' + esc(u.photoURL) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : "");
-    document.getElementById("acctEmail").textContent = u.email || "";
-  }
+  setAccount(u);
   if (!u) {
     if (unsub) { unsub(); unsub = null; }
     // Data milik sebuah akun tidak boleh tampil kalau tidak ada yang masuk.
@@ -569,7 +578,7 @@ onAuthStateChanged(auth, async u => {
   let owner = "", unsynced = false;
   try { owner = localStorage.finOwner || ""; unsynced = !!localStorage.finDirty; } catch (e) {}
   try {
-    const snap = await getDoc(doc(db, "users", u.uid));
+    const snap = await fb.getDoc(fb.doc(db, "users", u.uid));
     const cloud = snap.exists() ? clean(snap.data().rows) : null;
     const cg = snap.exists() && typeof snap.data().goal === "number" ? snap.data().goal : 0;
     const cr = snap.exists() ? pickRule(snap.data().rule, snap.data().rows) : defRule();
@@ -597,7 +606,6 @@ onAuthStateChanged(auth, async u => {
         saveCloud();
       }
     }
-    if (owner && owner !== u.uid) goal = cg;
     try { localStorage.finOwner = u.uid; } catch (e) {}
     saveLocal();
     draw();
@@ -606,15 +614,16 @@ onAuthStateChanged(auth, async u => {
     try { if (owner && owner !== u.uid) wipe(); } catch (x) {}
     status("Gagal terhubung ke database. Coba muat ulang halaman.");
   }
-});
+}
 
 window.login = async () => {
-  const p = new GoogleAuthProvider();
+  if (!fb) { alert("Login belum siap. Tunggu sebentar lalu coba lagi."); return; }
+  const p = new fb.GoogleAuthProvider();
   try {
-    await signInWithPopup(auth, p);
+    await fb.signInWithPopup(auth, p);
   } catch (e) {
     if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
-      signInWithRedirect(auth, p);
+      fb.signInWithRedirect(auth, p);
     } else if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
       alert("Gagal masuk: " + (e.code || e.message));
     }
@@ -627,7 +636,7 @@ window.logout = async () => {
     clearTimeout(timer);
     status("Menyimpan sebelum keluar...");
     try {
-      await setDoc(doc(db, "users", user.uid), payload());
+      await fb.setDoc(fb.doc(db, "users", user.uid), payload());
     } catch (e) {
       if (!confirm("Perubahan terakhir belum tersimpan ke akun. Tetap keluar? Perubahan itu akan hilang.")) {
         saveCloud();
@@ -639,14 +648,35 @@ window.logout = async () => {
   dirty = false; ver++;
   if (unsub) { unsub(); unsub = null; }
   wipe();
-  await signOut(auth);
+  await fb.signOut(auth);
 };
 
 // Menu akun: email, cadangan, dan keluar.
 const menu = document.getElementById("menu");
-window.toggleMenu = () => { menu.hidden = !menu.hidden; };
-document.addEventListener("click", e => { if (!menu.hidden && !e.target.closest("#acct")) menu.hidden = true; });
-document.addEventListener("keydown", e => { if (e.key === "Escape") menu.hidden = true; });
+function setMenu(open) {
+  menu.hidden = !open;
+  document.getElementById("avatar").setAttribute("aria-expanded", String(open));
+}
+window.toggleMenu = () => setMenu(menu.hidden);
+document.addEventListener("click", e => { if (!menu.hidden && !e.target.closest("#acct")) setMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
+
+// Ikon akun: huruf depan (atau foto Google) kalau sudah masuk, siluet kalau belum.
+// Menu cadangan tetap bisa dipakai tanpa login.
+const GUEST_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8z"/></svg>';
+function setAccount(u) {
+  const av = document.getElementById("avatar");
+  av.classList.toggle("guest", !u);
+  if (u) {
+    const letter = ((u.displayName || u.email || "?").trim()[0] || "?").toUpperCase();
+    av.innerHTML = "<span>" + esc(letter) + "</span>" +
+      (u.photoURL ? '<img src="' + esc(u.photoURL) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : "");
+  } else {
+    av.innerHTML = GUEST_ICON;
+  }
+  document.getElementById("acctEmail").textContent = u ? (u.email || "") : "Belum masuk";
+  document.getElementById("out").hidden = !u;
+}
 
 // Tinggi panel kiri mengikuti ruang layar yang terlihat, supaya seluruh isinya bisa digulir.
 const side = document.querySelector(".summary");
@@ -658,9 +688,25 @@ function fitSide() {
 window.addEventListener("scroll", fitSide, {passive: true});
 window.addEventListener("resize", fitSide);
 
+async function initFirebase() {
+  try {
+    const [a, b, c] = await Promise.all([import(FB + "firebase-app.js"), import(FB + "firebase-auth.js"), import(FB + "firebase-firestore.js")]);
+    const app = a.initializeApp(firebaseConfig);
+    fb = Object.assign({}, b, c);
+    auth = b.getAuth(app);
+    db = c.getFirestore(app);
+    fb.onAuthStateChanged(auth, onAuth);
+  } catch (e) {
+    status("Tidak bisa terhubung ke Firebase. Data hanya tersimpan di perangkat ini.");
+  }
+}
+
+setAccount(null);
 applyHide();
 draw();
 fitSide();
+status("Menghubungkan...");
+initFirebase();
 </script>
 </body>
 </html>
