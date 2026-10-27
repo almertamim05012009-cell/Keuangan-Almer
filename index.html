@@ -111,7 +111,17 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .dhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .dhead h2{font-size:1.1rem;margin:0}
 .qerr{margin:10px 0 0;font-size:.85rem;color:var(--danger)}
-.hide .tot,.hide .big,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .money,.hide .iamt,.hide .cyc .amt,.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
+.pbar{height:8px;background:var(--line);border-radius:5px;overflow:hidden}
+.pfill{height:100%;width:0;background:var(--accent)}
+.ptxt{margin:6px 0 14px;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.qwarn{margin:10px 0 0;padding:2px 0 2px 10px;border-left:3px solid var(--danger);font-size:.85rem}
+.welcome{border:1px solid var(--line);border-radius:12px;padding:16px;margin:4px 0 16px}
+.welcome h2{font-size:1.05rem;margin:0 0 8px}
+.welcome ol{margin:0 0 14px;padding-left:20px;color:var(--muted);font-size:.95rem}
+.welcome li+li{margin-top:6px}
+.wnote{margin:10px 0 0;font-size:.85rem;color:var(--muted)}
+.demo{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--in-bg);border-radius:10px;padding:10px 12px;font-size:.9rem;margin-bottom:4px}
+.hide .tot,.hide .big,.hide .ptxt,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .money,.hide .iamt,.hide .cyc .amt,.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
 .hide input[type=number]:focus,.hide .money:focus{filter:none}
 @media (hover:hover){.add:hover,.take:hover{filter:brightness(1.08)}.btn:hover{background:var(--line)}.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -157,6 +167,8 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <p class="tot" id="tTotal">Rp 0</p>
     <span class="lbl">Harus diinvestasikan</span>
     <p class="big" id="tTarget">Rp 0</p>
+    <div class="pbar" id="pbar" hidden><div class="pfill" id="pfill"></div></div>
+    <p class="ptxt" id="ptxt" hidden></p>
     <button class="take" id="takeBtn" onclick="takeAll()" hidden></button>
     <div class="stats">
       <div><span class="lbl">Pemasukan di tas</span><b id="tTas">Rp 0</b></div>
@@ -204,10 +216,11 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <button type="button" class="chip" role="radio" data-t="invest" onclick="pickType('invest')">Investasi</button>
     </div>
     <div class="fields" style="margin-top:12px">
-      <label class="span2">Jumlah (Rp)<input id="qAmt" class="money" inputmode="numeric" autocomplete="off" placeholder="0" oninput="fmtInput(this)"></label>
+      <label class="span2">Jumlah (Rp)<input id="qAmt" class="money" inputmode="numeric" autocomplete="off" placeholder="0" oninput="fmtInput(this);checkWarn()"></label>
       <label>Tanggal<input id="qDate" type="date"></label>
       <label>Catatan<input id="qNote" type="text" maxlength="120" autocomplete="off" placeholder="Boleh kosong"></label>
     </div>
+    <p class="qwarn" id="qWarn" hidden></p>
     <p class="qerr" id="qErr" hidden>Isi jumlahnya dulu.</p>
     <button class="add" type="submit" style="margin-top:14px">Simpan</button>
   </form>
@@ -393,7 +406,7 @@ function calc() {
       if (r.amount > 0 && inv >= need(r.rl || rule)) { closed[idx] = inv; tas = 0; bank = 0; inv = 0; }
     }
   });
-  return {tas: tas, bank: bank, got: tas + bank, inv: inv, life: life, closed: closed, tar: Math.max(0, need(rule) - inv)};
+  return {tas: tas, bank: bank, got: tas + bank, inv: inv, life: life, closed: closed, needNow: need(rule), tar: Math.max(0, need(rule) - inv)};
 }
 
 function refresh() {
@@ -410,6 +423,13 @@ function refresh() {
   document.getElementById("tTas").textContent = f(Math.max(0, x.tas));
   document.getElementById("tBank").textContent = f(Math.max(0, x.bank));
   document.getElementById("tInv").textContent = f(x.inv);
+  const pb = document.getElementById("pbar"), pt = document.getElementById("ptxt");
+  pb.hidden = pt.hidden = !(x.needNow > 0);
+  if (x.needNow > 0) {
+    const done = Math.min(x.inv, x.needNow);
+    document.getElementById("pfill").style.width = Math.round(done / x.needNow * 100) + "%";
+    pt.textContent = done > 0 ? f(done) + " dari " + f(x.needNow) + " sudah diinvestasikan" : "Belum ada yang diinvestasikan dari " + f(x.needNow);
+  }
   document.getElementById("rs").textContent =
     rule.low + "% di bawah " + f(rule.limit) + ", " + rule.high + "% mulai " + f(rule.limit);
   extras(x.life);
@@ -452,6 +472,15 @@ function extras(inv) {
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik total investasi dari waktu ke waktu">${gl}<polyline points="${line}" fill="none" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" style="stroke:var(--accent)"/><circle cx="${X(ys.length - 1).toFixed(1)}" cy="${Y(c).toFixed(1)}" r="4" style="fill:var(--accent)"/></svg><span class="lbl">Total investasi, ${dl(pts[0].date)} sampai ${dl(pts[pts.length - 1].date)}${goal > 0 ? " (garis putus-putus: target)" : ""}</span>`;
 }
 
+const DEMO = "Data contoh";
+function welcomeHtml() {
+  return `<div class="welcome"><h2>Mulai dari sini</h2><ol>
+    <li>Tekan <b>Catat baru</b>, lalu catat uang yang masuk ke tas atau ke bank.</li>
+    <li>Di panel kiri, aplikasi menghitung berapa yang harus kamu investasikan. Persennya bisa diatur di Aturan investasi.</li>
+    <li>Setelah berinvestasi, catat lewat tombol hijau. Hitungannya lalu mulai lagi dari nol.</li>
+  </ol><button class="btn pri" onclick="loadDemo()">Coba dengan data contoh</button><p class="wnote">${user ? "Datanya tersimpan di akunmu." : "Bisa dicoba tanpa login. Datanya tersimpan di perangkat ini."}</p></div>`;
+}
+
 function draw() {
   const closed = calc().closed;
   let prev = null, html = "";
@@ -475,7 +504,8 @@ function draw() {
       </div>
     </details>`;
   }
-  list.innerHTML = html || '<p class="empty">Belum ada catatan. Tekan "Catat baru" untuk mulai.</p>';
+  const banner = d.some(r => r.note === DEMO) ? '<div class="demo"><span>Ini data contoh.</span><button class="link" onclick="clearDemo()">Hapus data contoh</button></div>' : "";
+  list.innerHTML = html ? banner + html : welcomeHtml();
   document.getElementById("goalIn").value = goal ? fmtNum(goal) : "";
   document.getElementById("rLimit").value = fmtNum(rule.limit);
   document.getElementById("rLow").value = rule.low;
@@ -499,13 +529,25 @@ function setType(t) {
   qType = t;
   document.querySelectorAll("#chips .chip").forEach(b => b.setAttribute("aria-checked", String(b.dataset.t === t)));
 }
-window.pickType = t => { setType(t); document.getElementById("qAmt").focus(); };
+// Peringatan lembut (tidak melarang): jumlah lebih besar dari yang tercatat.
+function checkWarn() {
+  const w = document.getElementById("qWarn");
+  const amt = parseNum(document.getElementById("qAmt").value), x = calc();
+  let msg = "";
+  if (amt > 0 && qType === "pindah" && amt > Math.max(0, x.tas)) msg = "Pemasukan di tas yang tercatat baru " + f(Math.max(0, x.tas)) + ", lebih kecil dari jumlah ini. Tetap bisa disimpan.";
+  if (amt > 0 && qType === "invest" && amt > Math.max(0, x.bank)) msg = "Pemasukan di bank yang tercatat baru " + f(Math.max(0, x.bank)) + ", lebih kecil dari jumlah ini. Tetap bisa disimpan.";
+  w.textContent = msg;
+  w.hidden = !msg;
+}
+window.checkWarn = checkWarn;
+window.pickType = t => { setType(t); checkWarn(); document.getElementById("qAmt").focus(); };
 window.openAdd = () => {
   setType(qType);
   document.getElementById("qDate").value = today();
   document.getElementById("qAmt").value = "";
   document.getElementById("qNote").value = "";
   document.getElementById("qErr").hidden = true;
+  checkWarn();
   const dlg = document.getElementById("dlg");
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
   document.getElementById("qAmt").focus();
@@ -541,6 +583,24 @@ window.setRule = (k, v) => {
   refresh();
 };
 
+// Data contoh untuk pengunjung baru.
+window.loadDemo = () => {
+  const day = n => { const t = new Date(); t.setDate(t.getDate() - n); return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); };
+  const mk = (n, type, amount) => { const o = {date: day(n), type: type, amount: amount, note: DEMO}; if (type === "invest") o.rl = defRule(); return o; };
+  const rows = [mk(35, "bank", 200000), mk(28, "tas", 100000), mk(20, "pindah", 100000), mk(14, "invest", 30000), mk(7, "tas", 80000), mk(3, "bank", 120000)];
+  d = d.concat(rows);
+  save();
+  draw();
+  undoRow = {demo: rows};
+  toast("Data contoh dimuat", true);
+};
+window.clearDemo = () => {
+  d = d.filter(r => r.note !== DEMO);
+  save();
+  draw();
+  toast("Data contoh dihapus", false);
+};
+
 // Satu tombol di atas: mencatat investasi sebagai baris baru.
 window.takeAll = () => {
   const amt = Math.round(calc().tar);
@@ -571,7 +631,8 @@ window.del = (i) => {
 };
 window.undo = () => {
   if (!undoRow) return;
-  if (undoRow.added) {
+  if (undoRow.demo) d = d.filter(r => !undoRow.demo.includes(r));
+  else if (undoRow.added) {
     const k = d.indexOf(undoRow.added);
     if (k >= 0) d.splice(k, 1);
   } else d.splice(Math.min(undoRow.at, d.length), 0, undoRow.row);
