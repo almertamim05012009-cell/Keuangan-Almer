@@ -4,7 +4,7 @@ Aplikasi catatan uang masuk dan investasi yang aku pakai sendiri, supaya tidak p
 
 **Coba langsung: https://almertamim05012009-cell.github.io/Keuangan-Almer/**
 
-Bisa dicoba tanpa login, datanya tersimpan di perangkat kamu. Kalau mau datanya tersimpan di akun dan muncul di HP maupun komputer, masuk dengan Google.
+Bisa dicoba tanpa login, datanya tersimpan di perangkat kamu. Kalau mau datanya tersimpan di akun dan muncul di HP maupun komputer, masuk dengan Google. Kalau kamu login, datamu disimpan di Firebase milik pembuat website dan secara teknis bisa dilihat pembuatnya.
 
 ## Cara kerjanya
 
