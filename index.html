@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
+<script>try { if (window.top !== window.self) document.documentElement.style.display = "none"; } catch (e) { document.documentElement.style.display = "none"; }</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="Catatan uang masuk dan investasi pribadi. Menghitung otomatis berapa yang harus diinvestasikan, dengan target tabungan dan grafik.">
@@ -85,6 +86,7 @@ input,select{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:
 .menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:10px;border-radius:8px;font-size:.95rem}
 .menu button:hover{background:var(--line)}
 .menu .out{color:var(--danger)}
+.menu .pv{margin:6px 10px 4px;padding-top:8px;border-top:1px solid var(--line);font-size:.78rem;line-height:1.4;color:var(--muted)}
 .mhead{font-size:.85rem;font-weight:600;color:var(--muted);padding:16px 0 6px}
 .item{border-top:1px solid var(--line)}
 .irow{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:12px 0;cursor:pointer;list-style:none}
@@ -154,7 +156,9 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         <div class="em" id="acctEmail"></div>
         <button onclick="toggleMenu();exportCsv()">Unduh cadangan (CSV)</button>
         <button onclick="toggleMenu();document.getElementById('imp').click()">Pulihkan dari file</button>
+        <button class="out" id="wipeBtn" onclick="toggleMenu();wipeData()">Hapus data di perangkat ini</button>
         <button class="out" id="out" onclick="toggleMenu();logout()" hidden>Keluar</button>
+        <p class="pv">Tanpa login, datamu hanya ada di perangkat ini. Kalau login, datamu disimpan di Firebase milik pembuat website, dan secara teknis pembuatnya bisa melihatnya.</p>
       </div>
       <input type="file" id="imp" accept=".csv,text/csv" hidden onchange="importCsv(this)">
     </div>
@@ -478,7 +482,7 @@ function welcomeHtml() {
     <li>Tekan <b>Catat baru</b>, lalu catat uang yang masuk ke tas atau ke bank.</li>
     <li>Di panel kiri, aplikasi menghitung berapa yang harus kamu investasikan. Persennya bisa diatur di Aturan investasi.</li>
     <li>Setelah berinvestasi, catat lewat tombol hijau. Hitungannya lalu mulai lagi dari nol.</li>
-  </ol><button class="btn pri" onclick="loadDemo()">Coba dengan data contoh</button><p class="wnote">${user ? "Datanya tersimpan di akunmu." : "Bisa dicoba tanpa login. Datanya tersimpan di perangkat ini."}</p></div>`;
+  </ol><button class="btn pri" onclick="loadDemo()">Coba dengan data contoh</button><p class="wnote">${user ? "Datanya tersimpan di akunmu." : "Bisa dicoba tanpa login. Datanya tersimpan di perangkat ini. Kalau kamu login, datanya disimpan di Firebase milik pembuat website dan secara teknis bisa dilihat pembuatnya."}</p></div>`;
 }
 
 function draw() {
@@ -821,7 +825,37 @@ window.logout = async () => {
   await fb.signOut(auth);
 };
 
-// Menu akun: email, cadangan, dan keluar.
+// Hapus semua data: di akun (kalau sudah masuk) dan di perangkat ini.
+window.wipeData = async () => {
+  if (!user) {
+    if (!confirm("Hapus semua data di perangkat ini?\n\nCatatan, aturan, dan target tabunganmu akan dihapus dan tidak bisa dikembalikan. Unduh cadangan dulu kalau masih perlu.")) return;
+    wipe();
+    toast("Data di perangkat ini dihapus", false);
+    return;
+  }
+  if (!confirm("Hapus semua data di akun ini?\n\nCatatan, aturan, dan target tabunganmu akan dihapus dari akun dan dari perangkat ini, dan tidak bisa dikembalikan. Unduh cadangan dulu kalau masih perlu.")) return;
+  clearTimeout(timer);
+  dirty = false; ver++;
+  try {
+    await fb.deleteDoc(fb.doc(db, "users", user.uid));
+  } catch (e) {
+    toast("Gagal menghapus data akun. Coba lagi.", false);
+    return;
+  }
+  d = []; goal = 0; rule = defRule();
+  try {
+    localStorage.removeItem("fin");
+    localStorage.removeItem("finGoal");
+    localStorage.removeItem("finRule");
+    localStorage.removeItem("finDirty");
+    localStorage.finOwner = user.uid;
+  } catch (e) {}
+  draw();
+  status("Tersimpan di akun");
+  toast("Data akun dihapus", false);
+};
+
+// Menu akun: email, cadangan, hapus data, dan keluar.
 const menu = document.getElementById("menu");
 function setMenu(open) {
   menu.hidden = !open;
@@ -850,6 +884,7 @@ function setAccount(u) {
   }
   document.getElementById("acctEmail").textContent = u ? (u.email || "") : "Belum masuk";
   document.getElementById("out").hidden = !u;
+  document.getElementById("wipeBtn").textContent = u ? "Hapus data akun" : "Hapus data di perangkat ini";
 }
 
 // Tinggi panel kiri mengikuti ruang layar yang terlihat, supaya seluruh isinya bisa digulir.
