@@ -169,25 +169,25 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <div class="layout">
   <section class="summary">
-    <div class="sumhead"><span class="lbl">Total uang yang didapat</span><button id="eye" class="link" onclick="toggleHide()">Sembunyikan angka</button></div>
+    <div class="sumhead"><span class="lbl">Total pemasukan siklus ini</span><button id="eye" class="link" onclick="toggleHide()">Sembunyikan angka</button></div>
     <p class="tot" id="tTotal">Rp 0</p>
     <span class="lbl">Harus diinvestasikan</span>
     <p class="big" id="tTarget">Rp 0</p>
     <div class="pbar" id="pbar" hidden><div class="pfill" id="pfill"></div></div>
     <p class="ptxt" id="ptxt" hidden></p>
+    <p class="ptxt" id="lastCyc" hidden></p>
     <button class="take" id="takeBtn" onclick="takeAll()" hidden></button>
     <div class="stats">
-      <div><span class="lbl">Pemasukan di tas</span><b id="tTas">Rp 0</b></div>
-      <div><span class="lbl">Pemasukan di bank</span><b id="tBank">Rp 0</b></div>
+      <div><span class="lbl">Pemasukan sudah diproses</span><b id="tProc">Rp 0</b></div>
+      <div><span class="lbl">Pemasukan belum diproses</span><b id="tUnproc">Rp 0</b></div>
       <div><span class="lbl">Sudah diinvestasikan</span><b id="tInv">Rp 0</b></div>
+      <div><span class="lbl">Saldo di tas</span><b id="tTas">Rp 0</b></div>
+      <div><span class="lbl">Saldo di bank</span><b id="tBank">Rp 0</b></div>
     </div>
     <details class="more">
       <summary>Rincian hitungan</summary>
       <div class="stats">
-        <div><span class="lbl">Pemasukan sudah diproses</span><b id="dProc">Rp 0</b></div>
-        <div><span class="lbl">Pemasukan belum diproses</span><b id="dUnproc">Rp 0</b></div>
-        <div><span class="lbl">Saldo di tas</span><b id="dTas">Rp 0</b></div>
-        <div><span class="lbl">Saldo di bank</span><b id="dBank">Rp 0</b></div>
+        <div><span class="lbl">Persen yang berlaku di siklus ini</span><b id="dPct">0%</b></div>
         <div><span class="lbl">Total investasi sejak awal</span><b id="dLife">Rp 0</b></div>
         <div id="dCredRow" hidden><span class="lbl">Kredit kelebihan investasi</span><b id="dCred">Rp 0</b></div>
       </div>
@@ -400,17 +400,19 @@ function save() { saveLocal(); saveCloud(); }
 function f(n) { n = +n; return (n < 0 ? "-" : "") + "Rp " + Math.abs(n).toLocaleString("id-ID"); }
 
 // Hitungan siklus. Catatan diproses berurutan menurut tanggal; kalau tanggalnya sama, menurut urutan pencatatan.
-// - Pemasukan di tas / di bank = uang masuk dalam siklus ini. Pindah dari tas ke bank hanya memindahkan, bukan pemasukan baru.
-// - Total uang yang didapat = pemasukan di tas + di bank. Persen aturan: persen rendah kalau total di bawah batas, persen tinggi kalau sudah mencapai batas.
-// - Investasi sebesar X pada persen p memproses pemasukan sebesar X / p. Sisanya adalah pemasukan yang belum diproses.
-// - Harus diinvestasikan = p x pemasukan yang belum diproses. Kalau investasinya sudah sebesar itu, siklus selesai dan angka siklus kembali ke 0.
-// - Kelebihan investasi tidak hilang dan nominalnya tidak diubah: disimpan sebagai kredit yang mengurangi "harus diinvestasikan" di siklus berikutnya.
-// - Aturan satu siklus dibekukan sejak siklus dimulai: aturan yang tersimpan di investasi pertama siklus itu (rl), atau aturan sekarang kalau belum ada investasi.
-// - Saldo di tas dan saldo di bank adalah uang sebenarnya. Keduanya tidak ikut kembali ke 0 saat siklus selesai.
+// 1. Total pemasukan siklus = semua uang masuk (ke tas atau ke bank) sejak siklus dimulai. Pindah dari tas ke bank bukan pemasukan baru.
+// 2. Persen siklus: persen rendah kalau total pemasukan di bawah batas, persen tinggi kalau sudah mencapai batas.
+//    Persen itu dikunci begitu investasi pertama di siklus dicatat, dan tidak berubah sampai siklus selesai.
+// 3. Pemasukan diproses = investasi aktual / persen. Pemasukan belum diproses = total pemasukan siklus - pemasukan diproses.
+// 4. Harus diinvestasikan = persen x pemasukan belum diproses. Kalau investasinya sudah sebesar itu, siklus selesai dan hitungan siklus berikutnya mulai dari 0.
+// 5. Kelebihan investasi tidak hilang dan nominalnya tidak diubah: disimpan sebagai kredit yang mengurangi "harus diinvestasikan" di siklus berikutnya.
+// 6. Aturan (batas dan persen) satu siklus dibekukan dari investasi pertama siklus itu (rl), atau aturan sekarang kalau belum ada investasi.
+// 7. Saldo di tas dan saldo di bank adalah uang sebenarnya: bertambah dari pemasukan, berpindah lewat catatan pindah, dan saldo bank hanya berkurang
+//    sebesar investasi aktual. Saldo tidak ikut kembali ke 0 saat siklus selesai, dan tidak dikurangi oleh pemasukan yang dianggap sudah diproses.
 const dkey = r => /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : "9999-99-99";
 function calc() {
   const order = d.map((r, i) => i).sort((a, b) => { const x = dkey(d[a]), y = dkey(d[b]); return x < y ? -1 : x > y ? 1 : a - b; });
-  let tas = 0, bank = 0, inv = 0, done = 0, credit = 0, life = 0, balTas = 0, balBank = 0, cr = null;
+  let inc = 0, inv = 0, done = 0, credit = 0, life = 0, balTas = 0, balBank = 0, cr = null, lock = null, last = null;
   const closed = {};
   const firstRule = from => {
     for (let k = from; k < order.length; k++) {
@@ -423,39 +425,37 @@ function calc() {
   order.forEach((idx, pos) => {
     const r = d[idx], a = r.amount;
     if (!cr) cr = firstRule(pos);
-    if (r.type === "tas") { tas += a; balTas += a; }
-    else if (r.type === "bank") { bank += a; balBank += a; }
-    else if (r.type === "pindah") {
-      const mv = Math.min(a, Math.max(0, tas));
-      tas -= mv; bank += mv;
-      balTas -= a; balBank += a;
-    } else {
+    if (r.type === "tas") { inc += a; balTas += a; }
+    else if (r.type === "bank") { inc += a; balBank += a; }
+    else if (r.type === "pindah") { balTas -= a; balBank += a; }
+    else {
       life += a;
       balBank -= a;
       if (a <= 0) return;
-      const t = tas + bank;
-      if (t <= 0) { credit += a; return; }
-      const p = pctOf(t, cr);
-      const rem = Math.round(Math.max(0, t - done) * p / 100);
+      if (inc <= 0) { credit += a; return; }
+      const p = lock !== null ? lock : pctOf(inc, cr);
+      const rem = Math.round(Math.max(0, inc - done) * p / 100);
       const use = Math.min(credit, rem), need = rem - use;
       if (a >= need) {
         closed[idx] = inv + a;
+        last = {income: inc, processed: inc, unprocessed: 0, invested: inv + a, pct: p, excess: a - need};
         credit = credit - use + (a - need);
-        tas = 0; bank = 0; inv = 0; done = 0; cr = null;
+        inc = 0; inv = 0; done = 0; cr = null; lock = null;
       } else {
         inv += a;
+        lock = p;
         if (p > 0) done += a * 100 / p;
       }
     }
   });
-  const t = tas + bank, R = cr || rule, p = pctOf(t, R);
-  const rem = Math.round(Math.max(0, t - done) * p / 100);
+  const R = cr || rule, p = lock !== null ? lock : pctOf(inc, R);
+  const rem = Math.round(Math.max(0, inc - done) * p / 100);
   const use = Math.min(credit, rem);
-  const proc = p > 0 ? Math.min(t, done + use * 100 / p) : t;
+  const proc = p > 0 ? Math.min(inc, done + use * 100 / p) : inc;
   const tar = Math.max(0, rem - use);
-  return {tas: tas, bank: bank, got: t, inv: inv, life: life, closed: closed, order: order, tar: tar,
-    proc: Math.round(proc), unproc: Math.max(0, Math.round(t - proc)), credit: credit, creditUsed: use,
-    target: inv + use + tar, done: inv + use, balTas: balTas, balBank: balBank};
+  return {got: inc, inv: inv, life: life, closed: closed, order: order, tar: tar, pct: p,
+    proc: Math.round(proc), unproc: Math.max(0, Math.round(inc - proc)), credit: credit, creditUsed: use,
+    target: inv + use + tar, done: inv + use, balTas: balTas, balBank: balBank, last: last};
 }
 
 function refresh() {
@@ -469,19 +469,21 @@ function refresh() {
   tb.textContent = "Catat sudah diinvestasikan " + f(sug);
   document.getElementById("tTotal").textContent = f(x.got);
   document.getElementById("tTarget").textContent = f(sug);
-  document.getElementById("tTas").textContent = f(Math.max(0, x.tas));
-  document.getElementById("tBank").textContent = f(Math.max(0, x.bank));
+  document.getElementById("tProc").textContent = f(x.proc);
+  document.getElementById("tUnproc").textContent = f(x.unproc);
   document.getElementById("tInv").textContent = f(x.inv);
+  document.getElementById("tTas").textContent = f(x.balTas);
+  document.getElementById("tBank").textContent = f(x.balBank);
   const pb = document.getElementById("pbar"), pt = document.getElementById("ptxt");
   pb.hidden = pt.hidden = !(x.target > 0);
   if (x.target > 0) {
     document.getElementById("pfill").style.width = Math.round(x.done / x.target * 100) + "%";
     pt.textContent = x.done > 0 ? f(x.done) + " dari " + f(x.target) + " sudah diinvestasikan" + (x.creditUsed > 0 ? " (termasuk kredit " + f(x.creditUsed) + ")" : "") : "Belum ada yang diinvestasikan dari " + f(x.target);
   }
-  document.getElementById("dProc").textContent = f(x.proc);
-  document.getElementById("dUnproc").textContent = f(x.unproc);
-  document.getElementById("dTas").textContent = f(x.balTas);
-  document.getElementById("dBank").textContent = f(x.balBank);
+  const lc = document.getElementById("lastCyc");
+  lc.hidden = !(x.last && x.got <= 0 && x.inv <= 0);
+  if (!lc.hidden) lc.textContent = "Siklus terakhir selesai: pemasukan " + f(x.last.income) + " diproses penuh dengan investasi " + f(x.last.invested) + (x.last.excess > 0 ? ", kelebihan " + f(x.last.excess) + " jadi kredit" : "") + ".";
+  document.getElementById("dPct").textContent = x.pct + "%";
   document.getElementById("dLife").textContent = f(x.life);
   document.getElementById("dCredRow").hidden = !(x.credit > 0);
   document.getElementById("dCred").textContent = f(x.credit) + (x.creditUsed > 0 ? " (terpakai " + f(x.creditUsed) + ")" : "");
