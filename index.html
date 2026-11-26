@@ -124,6 +124,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .wnote{margin:10px 0 0;font-size:.85rem;color:var(--muted)}
 .demo{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--in-bg);border-radius:10px;padding:10px 12px;font-size:.9rem;margin-bottom:4px}
 .more{margin-top:10px}
+.ipct{font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .more summary{cursor:pointer;font-size:.85rem;color:var(--muted);padding:4px 0}
 .hide .tot,.hide .big,.hide .ptxt,.hide .stats b,.hide .take,.hide .rule summary span,.hide input[type=number],.hide .money,.hide .iamt,.hide .cyc .amt,.hide .gtxt,.hide .mtab td:not(:first-child){filter:blur(7px)}
 .hide input[type=number]:focus,.hide .money:focus{filter:none}
@@ -187,7 +188,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <details class="more">
       <summary>Rincian hitungan</summary>
       <div class="stats">
-        <div><span class="lbl">Persen yang berlaku di siklus ini</span><b id="dPct">0%</b></div>
+        <div><span class="lbl">Persen rata-rata sisa pemasukan</span><b id="dPct">0%</b></div>
         <div><span class="lbl">Total investasi sejak awal</span><b id="dLife">Rp 0</b></div>
         <div id="dCredRow" hidden><span class="lbl">Kredit kelebihan investasi</span><b id="dCred">Rp 0</b></div>
       </div>
@@ -196,7 +197,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <details class="rule">
       <summary>Aturan investasi: <span id="rs"></span></summary>
       <div class="fields">
-        <label class="span2">Batas total uang yang didapat (Rp)<input id="rLimit" class="money" inputmode="numeric" autocomplete="off" oninput="setRule('limit',fmtInput(this))"></label>
+        <label class="span2">Batas nominal satu pemasukan (Rp)<input id="rLimit" class="money" inputmode="numeric" autocomplete="off" oninput="setRule('limit',fmtInput(this))"></label>
         <label>Persen di bawah batas<input id="rLow" type="number" inputmode="decimal" min="0" max="100" step="any" oninput="setRule('low',this.value)"></label>
         <label>Persen mulai batas<input id="rHigh" type="number" inputmode="decimal" min="0" max="100" step="any" oninput="setRule('high',this.value)"></label>
       </div>
@@ -297,7 +298,8 @@ const shortDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + "T00:00:00")
 const monthLabel = k => k ? new Date(k + "-01T00:00:00").toLocaleDateString("id-ID", {month: "long", year: "numeric"}) : "Tanpa tanggal";
 function summaryHtml(r) {
   const amt = r.type === "tas" || r.type === "bank" ? "+ " + f(r.amount) : f(r.amount);
-  return `<span class="idate">${shortDate(r.date)}</span><span class="imid"><span class="badge b-${r.type}">${BADGE[r.type]}</span>${r.note ? `<span class="inote">${esc(r.note)}</span>` : ""}</span><span class="iamt a-${r.type}">${amt}</span>`;
+  const pc = r.type === "tas" || r.type === "bank" ? `<span class="ipct">${rowPct(r)}%</span>` : "";
+  return `<span class="idate">${shortDate(r.date)}</span><span class="imid"><span class="badge b-${r.type}">${BADGE[r.type]}</span>${pc}${r.note ? `<span class="inote">${esc(r.note)}</span>` : ""}</span><span class="iamt a-${r.type}">${amt}</span>`;
 }
 
 // Aturan investasi (satu untuk semua): batas Rp 500.000, 10% di bawah batas, 20% mulai dari batas.
@@ -318,18 +320,28 @@ function clean(rows) {
     const date = String(r.date || ""), note = String(r.note || "").slice(0, 120);
     if (TYPES.includes(r.type)) {
       const o = {date: date, type: r.type, amount: num(r.amount, 0, 0, Infinity), note: note};
-      if (r.type === "invest" && r.rl) o.rl = cleanRule(r.rl);
+      if (r.type !== "pindah" && r.rl) o.rl = cleanRule(r.rl);
       out.push(o);
     } else {
       // Format lama: satu baris berisi uang masuk dan/atau investasi, dipecah jadi baris terpisah.
       const cash = num(r.cash, 0, 0, Infinity), inv = num(r.invested, 0, 0, Infinity);
-      if (cash > 0 || inv === 0) out.push({date: date, type: "tas", amount: cash, note: note});
+      const rl = r.limit !== undefined && r.low !== undefined && r.high !== undefined ? cleanRule({limit: r.limit, low: r.low, high: r.high}) : null;
+      if (cash > 0 || inv === 0) {
+        const o = {date: date, type: "tas", amount: cash, note: note};
+        if (rl && cash > 0) o.rl = rl;
+        out.push(o);
+      }
       if (inv > 0) out.push({date: date, type: "invest", amount: inv, note: cash > 0 ? "" : note});
     }
   });
   // Baris kosong (tanpa jumlah dan catatan) tidak ada gunanya, jadi dibuang.
   return out.filter(r => r.amount > 0 || r.note);
 }
+// Persen satu pemasukan ditentukan oleh nominal pemasukan itu sendiri: persen rendah di bawah batas, persen tinggi mulai batas.
+// Aturan yang dipakai adalah aturan yang tersimpan di barisnya (rl); baris lama yang belum punya aturan memakai aturan sekarang.
+function rowPct(r) { const R = r.rl || rule; return r.amount >= R.limit ? R.high : R.low; }
+// Pemasukan lama yang belum menyimpan aturannya diberi aturan yang berlaku sekarang, supaya riwayatnya tidak ikut berubah kalau aturan diganti.
+function stamp() { d.forEach(r => { if ((r.type === "tas" || r.type === "bank") && !r.rl) r.rl = Object.assign({}, rule); }); }
 function hasData(rows) { return rows.some(r => r.amount || r.note); }
 
 let d = [], rule = defRule();
@@ -395,67 +407,71 @@ function saveCloud() {
     }
   }, 600);
 }
-function save() { saveLocal(); saveCloud(); }
+function save() { stamp(); saveLocal(); saveCloud(); }
 
 function f(n) { n = +n; return (n < 0 ? "-" : "") + "Rp " + Math.abs(n).toLocaleString("id-ID"); }
 
 // Hitungan siklus. Catatan diproses berurutan menurut tanggal; kalau tanggalnya sama, menurut urutan pencatatan.
-// 1. Total pemasukan siklus = semua uang masuk (ke tas atau ke bank) sejak siklus dimulai. Pindah dari tas ke bank bukan pemasukan baru.
-// 2. Persen siklus: persen rendah kalau total pemasukan di bawah batas, persen tinggi kalau sudah mencapai batas.
-//    Persen itu dikunci begitu investasi pertama di siklus dicatat, dan tidak berubah sampai siklus selesai.
-// 3. Pemasukan diproses = investasi aktual / persen. Pemasukan belum diproses = total pemasukan siklus - pemasukan diproses.
-// 4. Harus diinvestasikan = persen x pemasukan belum diproses. Kalau investasinya sudah sebesar itu, siklus selesai dan hitungan siklus berikutnya mulai dari 0.
-// 5. Kelebihan investasi tidak hilang dan nominalnya tidak diubah: disimpan sebagai kredit yang mengurangi "harus diinvestasikan" di siklus berikutnya.
-// 6. Aturan (batas dan persen) satu siklus dibekukan dari investasi pertama siklus itu (rl), atau aturan sekarang kalau belum ada investasi.
-// 7. Saldo di tas dan saldo di bank adalah uang sebenarnya: bertambah dari pemasukan, berpindah lewat catatan pindah, dan saldo bank hanya berkurang
+// 1. Tiap pemasukan (ke tas atau ke bank) punya persennya sendiri, ditentukan oleh nominal pemasukan itu: persen rendah di bawah batas, persen tinggi mulai batas.
+//    Aturan yang dipakai tersimpan di barisnya (rl). Total pemasukan siklus tidak ikut menentukan persen. Pindah dari tas ke bank bukan pemasukan baru.
+// 2. Kewajiban investasi satu pemasukan = nominalnya x persennya. "Harus diinvestasikan" = jumlah kewajiban dari semua pemasukan yang belum diproses.
+// 3. Investasi aktual dialokasikan ke pemasukan yang belum diproses dengan urutan FIFO (yang tertua dulu).
+//    Investasi X pada pemasukan berpersen p memproses pemasukan sebesar X / p. Sisa pemasukan itu tetap menunggu kalau investasinya baru sebagian.
+// 4. Siklus selesai kalau seluruh kewajiban pemasukan yang tercatat sudah terpenuhi oleh sebuah investasi. Angka siklus kembali ke 0, riwayat dan saldo tetap.
+// 5. Kelebihan investasi tidak hilang dan nominalnya tidak diubah: disimpan sebagai kredit, lalu dialokasikan ke pemasukan berikutnya begitu pemasukan itu dicatat.
+//    Investasi yang dicatat sebelum ada pemasukan di siklus juga menjadi kredit.
+// 6. Saldo di tas dan saldo di bank adalah uang sebenarnya: bertambah dari pemasukan, berpindah lewat catatan pindah, dan saldo bank hanya berkurang
 //    sebesar investasi aktual. Saldo tidak ikut kembali ke 0 saat siklus selesai, dan tidak dikurangi oleh pemasukan yang dianggap sudah diproses.
 const dkey = r => /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : "9999-99-99";
 function calc() {
   const order = d.map((r, i) => i).sort((a, b) => { const x = dkey(d[a]), y = dkey(d[b]); return x < y ? -1 : x > y ? 1 : a - b; });
-  let inc = 0, inv = 0, done = 0, credit = 0, life = 0, balTas = 0, balBank = 0, cr = null, lock = null, last = null;
+  let q = [], inc = 0, inv = 0, alloc = 0, allocAll = 0, credUsed = 0, credit = 0, life = 0, balTas = 0, balBank = 0, last = null;
   const closed = {};
-  const firstRule = from => {
-    for (let k = from; k < order.length; k++) {
-      const r = d[order[k]];
-      if (r.type === "invest" && r.amount > 0) return r.rl || rule;
+  const need = it => Math.round(it.R * it.p / 100);
+  const purge = () => { while (q.length && need(q[0]) <= 0) q.shift(); };
+  // Alokasi FIFO: mengembalikan sisa uang yang tidak terpakai (hanya ada kalau semua pemasukan sudah terproses).
+  const pay = a => {
+    purge();
+    while (a > 0 && q.length) {
+      const it = q[0], n = need(it);
+      if (a >= n) { a -= n; alloc += n; allocAll += n; q.shift(); }
+      else { it.R -= a * 100 / it.p; alloc += a; allocAll += a; a = 0; }
+      purge();
     }
-    return rule;
+    return a;
   };
-  const pctOf = (t, R) => t >= R.limit ? R.high : R.low;
-  order.forEach((idx, pos) => {
+  order.forEach(idx => {
     const r = d[idx], a = r.amount;
-    if (!cr) cr = firstRule(pos);
-    if (r.type === "tas") { inc += a; balTas += a; }
-    else if (r.type === "bank") { inc += a; balBank += a; }
-    else if (r.type === "pindah") { balTas -= a; balBank += a; }
+    if (r.type === "tas" || r.type === "bank") {
+      if (r.type === "tas") balTas += a; else balBank += a;
+      if (a > 0) {
+        inc += a;
+        q.push({R: a, p: rowPct(r)});
+        if (credit > 0) { const b = alloc; credit = pay(credit); credUsed += alloc - b; }
+      }
+    } else if (r.type === "pindah") { balTas -= a; balBank += a; }
     else {
       life += a;
       balBank -= a;
       if (a <= 0) return;
       if (inc <= 0) { credit += a; return; }
-      const p = lock !== null ? lock : pctOf(inc, cr);
-      const rem = Math.round(Math.max(0, inc - done) * p / 100);
-      const use = Math.min(credit, rem), need = rem - use;
-      if (a >= need) {
-        closed[idx] = inv + a;
-        last = {income: inc, processed: inc, unprocessed: 0, invested: inv + a, pct: p, excess: a - need};
-        credit = credit - use + (a - need);
-        inc = 0; inv = 0; done = 0; cr = null; lock = null;
-      } else {
-        inv += a;
-        lock = p;
-        if (p > 0) done += a * 100 / p;
+      inv += a;
+      const left = pay(a);
+      purge();
+      if (q.length === 0) {
+        closed[idx] = inv;
+        last = {income: inc, processed: inc, unprocessed: 0, invested: inv, excess: left, idx: idx};
+        credit += left;
+        inc = 0; inv = 0; alloc = 0; credUsed = 0;
       }
     }
   });
-  const R = cr || rule, p = lock !== null ? lock : pctOf(inc, R);
-  const rem = Math.round(Math.max(0, inc - done) * p / 100);
-  const use = Math.min(credit, rem);
-  const proc = p > 0 ? Math.min(inc, done + use * 100 / p) : inc;
-  const tar = Math.max(0, rem - use);
-  return {got: inc, inv: inv, life: life, closed: closed, order: order, tar: tar, pct: p,
-    proc: Math.round(proc), unproc: Math.max(0, Math.round(inc - proc)), credit: credit, creditUsed: use,
-    target: inv + use + tar, done: inv + use, balTas: balTas, balBank: balBank, last: last};
+  let unprocR = 0, tar = 0;
+  q.forEach(it => { unprocR += it.R; tar += Math.max(0, need(it)); });
+  return {got: inc, inv: inv, life: life, closed: closed, order: order, tar: tar,
+    proc: Math.round(inc - unprocR), unproc: Math.max(0, Math.round(unprocR)), credit: credit, creditUsed: credUsed,
+    target: alloc + tar, done: alloc, allocAll: allocAll, balTas: balTas, balBank: balBank, last: last,
+    pctAvg: unprocR > 0 ? tar / unprocR * 100 : 0};
 }
 
 function refresh() {
@@ -483,7 +499,7 @@ function refresh() {
   const lc = document.getElementById("lastCyc");
   lc.hidden = !(x.last && x.got <= 0 && x.inv <= 0);
   if (!lc.hidden) lc.textContent = "Siklus terakhir selesai: pemasukan " + f(x.last.income) + " diproses penuh dengan investasi " + f(x.last.invested) + (x.last.excess > 0 ? ", kelebihan " + f(x.last.excess) + " jadi kredit" : "") + ".";
-  document.getElementById("dPct").textContent = x.pct + "%";
+  document.getElementById("dPct").textContent = x.unproc > 0 ? (Math.round(x.pctAvg * 10) / 10).toLocaleString("id-ID") + "%" : "-";
   document.getElementById("dLife").textContent = f(x.life);
   document.getElementById("dCredRow").hidden = !(x.credit > 0);
   document.getElementById("dCred").textContent = f(x.credit) + (x.creditUsed > 0 ? " (terpakai " + f(x.creditUsed) + ")" : "");
@@ -576,7 +592,7 @@ function draw() {
 window.upd = (i, k, v) => {
   d[i][k] = k === "amount" ? Math.max(0, +v || 0) : v;
   if (k === "type") {
-    if (v === "invest") { if (!d[i].rl) d[i].rl = Object.assign({}, rule); }
+    if (v === "tas" || v === "bank") { if (!d[i].rl) d[i].rl = Object.assign({}, rule); }
     else delete d[i].rl;
   }
   save();
@@ -624,7 +640,7 @@ window.saveQuick = e => {
     return false;
   }
   const row = {date: document.getElementById("qDate").value || today(), type: qType, amount: amt, note: document.getElementById("qNote").value.trim().slice(0, 120)};
-  if (qType === "invest") row.rl = Object.assign({}, rule);
+  if (qType === "tas" || qType === "bank") row.rl = Object.assign({}, rule);
   d.push(row);
   save();
   draw();
@@ -636,6 +652,7 @@ window.saveQuick = e => {
 
 window.setGoal = v => { goal = Math.max(0, +v || 0); saveLocal(); saveCloud(); refresh(); };
 window.setRule = (k, v) => {
+  stamp();
   rule[k] = k === "limit" ? Math.max(0, +v || 0) : Math.min(100, Math.max(0, +v || 0));
   saveLocal();
   saveCloud();
@@ -645,7 +662,7 @@ window.setRule = (k, v) => {
 // Data contoh untuk pengunjung baru.
 window.loadDemo = () => {
   const day = n => { const t = new Date(); t.setDate(t.getDate() - n); return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); };
-  const mk = (n, type, amount) => { const o = {date: day(n), type: type, amount: amount, note: DEMO}; if (type === "invest") o.rl = defRule(); return o; };
+  const mk = (n, type, amount) => { const o = {date: day(n), type: type, amount: amount, note: DEMO}; if (type === "tas" || type === "bank") o.rl = defRule(); return o; };
   const rows = [mk(35, "bank", 200000), mk(28, "tas", 100000), mk(20, "pindah", 100000), mk(14, "invest", 30000), mk(7, "tas", 80000), mk(3, "bank", 120000)];
   d = d.concat(rows);
   save();
@@ -665,7 +682,7 @@ window.takeAll = () => {
   const amt = Math.round(calc().tar);
   if (amt <= 0) return;
   const last = d.reduce((m, r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && r.date > m ? r.date : m, today());
-  const row = Object.assign(blank(), {date: last, type: "invest", amount: amt, note: "Investasi", rl: Object.assign({}, rule)});
+  const row = Object.assign(blank(), {date: last, type: "invest", amount: amt, note: "Investasi"});
   d.push(row);
   save();
   draw();
